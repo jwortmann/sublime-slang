@@ -1,0 +1,1154 @@
+%YAML 1.2
+---
+# https://github.com/shader-slang/spec
+name: Slang
+scope: source.slang
+version: 2
+
+file_extensions:
+  - slang
+
+variables:
+  ReservedWord: '\b(?:is)\b'  # TODO: add all reserverd keywords
+  Identifier: '\b[A-Za-z_]\w*\b'
+  IntegerSuffixUnsigned: '[uU]'
+  IntegerSuffixWidth: '(?:ll|LL|l|L|z|Z)'
+  IntegerSuffix: '{{IntegerSuffixUnsigned}}{{IntegerSuffixWidth}}?|{{IntegerSuffixWidth}}{{IntegerSuffixUnsigned}}?'
+  FloatSuffix: 'hf|h|HF|H|fh|FH|fl|f|FL|F|lf|l|LF|L'
+  DecExponentNumeric: '[eE][-+]?\d+'
+  InfinityExponent: '#INF'
+  DecExponent: '(?:{{DecExponentNumeric}}|{{InfinityExponent}})'
+  HexExponentNumeric: '[pP][-+]?\d+'
+  HexExponent: '(?:{{HexExponentNumeric}}|{{InfinityExponent}})'
+  RawStringDelim: '[^"()[:space:]]*'
+
+contexts:
+
+  prototype:
+    - include: comments
+    - include: merge-conflict-markers
+    - include: preprocessor-directives
+
+  main:
+    - include: prototype
+    - include: declaration-keywords
+    - include: modifier-keywords
+    - include: control-keywords
+    - include: operator-keywords
+    - include: misc-keywords
+    - include: punctuations
+    - include: type-annotations
+    - include: attributes
+    - include: labels
+    - include: traditional-declarations
+    - include: builtin-types
+    - include: expressions
+
+  eol-pop:
+    - match: $\n?
+      pop: 1
+
+  else-pop:
+    - match: (?=\S)
+      pop: 1
+
+  immediately-pop:
+    - match: ''
+      pop: 1
+
+# ===[ Meta Scopes ]============================================================
+
+  struct-declaration-meta:
+    - meta_scope: meta.struct.slang
+    - include: immediately-pop
+
+  enum-declaration-meta:
+    - meta_scope: meta.enum.slang
+    - include: immediately-pop
+
+  interface-declaration-meta:
+    - meta_scope: meta.interface.slang
+    - include: immediately-pop
+
+  extension-declaration-meta:
+    - meta_scope: meta.trait.slang
+    - include: immediately-pop
+
+  function-declaration-meta:
+    - meta_scope: meta.function.slang
+    - include: immediately-pop
+
+  function-call-meta:
+    - meta_content_scope: meta.function-call.slang
+    - include: immediately-pop
+
+  if-statement-meta:
+    - meta_scope: meta.statement.conditional.if.slang
+    - include: immediately-pop
+
+  else-statement-meta:
+    - meta_scope: meta.statement.conditional.else.slang
+    - include: immediately-pop
+
+  switch-statement-meta:
+    - meta_scope: meta.statement.conditional.switch.slang
+    - include: immediately-pop
+
+  for-statement-meta:
+    - meta_scope: meta.statement.loop.for.slang
+    - include: immediately-pop
+
+  while-statement-meta:
+    - meta_scope: meta.statement.loop.while.slang
+    - include: immediately-pop
+
+  do-statement-meta:
+    - meta_scope: meta.statement.do.slang
+    - include: immediately-pop
+
+  catch-statement-meta:
+    - meta_scope: meta.statement.exception.catch.slang
+    - include: immediately-pop
+
+# ===[ Branch Point Helpers ]===================================================
+
+  fail-function-call:
+    - match: (?=\S|$)
+      fail: function-call
+
+  fail-traditional-declaration:
+    - match: (?=\S|$)
+      fail: traditional-declaration
+
+# ===[ Merge Conflict Markers ]=================================================
+
+  merge-conflict-markers:
+    - match: ^(<{7})(?:\s+(\S.*?))?$\n?
+      scope: meta.block.conflict.begin.diff
+      captures:
+        1: punctuation.section.block.begin.diff
+        2: entity.name.section.diff
+    - match: ^(>{7})(?:\s+(\S.*?))?$\n?
+      scope: meta.block.conflict.end.diff
+      captures:
+        1: punctuation.section.block.end.diff
+        2: entity.name.section.diff
+    - match: ^(\|{7}|={7})(?:\s+(\S.*?))?$\n?
+      scope: meta.block.conflict.separator.diff
+      captures:
+        1: punctuation.section.block.diff
+        2: entity.name.section.diff
+
+# ===[ Comments ]===============================================================
+
+  comments:
+    - match: //
+      scope: punctuation.definition.comment.slang
+      push:
+        - line-comment
+        - todo-comment
+    - match: /\*
+      scope: punctuation.definition.comment.begin.slang
+      push: block-comment
+    - match: \b__ignored_block\b
+      scope: keyword.other.slang
+      push: ignored-block
+
+  line-comment:
+    - meta_scope: comment.line.double-slash.slang
+    - include: eol-pop
+
+  todo-comment:
+    - match: (?i:(TODO))\b[^\n]*
+      scope: meta.codetag.todo.slang
+      captures:
+        1: entity.name.label.todo.slang
+      pop: 1
+    - match: (?i:(FIXME))\b[^\n]*
+      scope: meta.codetag.fixme.slang
+      captures:
+        1: entity.name.label.fixme.slang
+      pop: 1
+    - include: else-pop
+    - match: $
+      pop: 1
+
+  block-comment:
+    - meta_include_prototype: false
+    - meta_scope: comment.block.slang
+    - match: \*/
+      scope: punctuation.definition.comment.end.slang
+      pop: 1
+
+  ignored-block:
+    - match: \{
+      scope: punctuation.section.block.begin.slang
+      set: ignored-block-body
+    - include: prototype
+    - include: else-pop
+
+  ignored-block-body:
+    - meta_include_prototype: false
+    - meta_scope: meta.block.slang
+    - meta_content_scope: comment.block.slang
+    - match: \}
+      scope: punctuation.section.block.end.slang
+      pop: 1
+    - include: ignored-block-nested-blocks
+
+  ignored-block-nested-blocks:
+    - match: \{
+      push: ignored-block-nested-block-body
+
+  ignored-block-nested-block-body:
+    - match: \}
+      pop: 1
+
+# ===[ Preprocessor Directives ]================================================
+
+  preprocessor-directives:
+    - match: '^\s*(?=#)'
+      push:
+        - preprocessor-directive
+        - preprocessor-keyword
+        - preprocessor-punctuation
+
+  preprocessor-punctuation:
+    - match: '#'
+      scope: punctuation.definition.preprocessor.slang
+      pop: 1
+
+  preprocessor-keyword:
+    - match: \b(?:include|define|undef|if|ifdef|ifndef|else|elif|endif|error|warning|line|pragma)\b
+      scope: keyword.other.preprocessor.slang
+      # scope: keyword.control.directive.slang
+      pop: 1
+    - match: \b(?:lang|language)\b
+      scope: keyword.other.preprocessor.slang
+      pop: 1
+    - include: else-pop
+    - include: eol-pop
+
+  preprocessor-directive:
+    - meta_scope: meta.preprocessor.slang
+    - include: expressions
+    - include: eol-pop
+
+# ===[ Attributes ]=============================================================
+
+  attributes:
+    - match: '^\s*(?=\[)'
+      push: attribute-bracket
+
+  attribute-bracket:
+    - match: \[\[?
+      scope: punctuation.definition.annotation.begin.slang
+      set: attribute-body
+
+  attribute-body:
+    - meta_scope: meta.annotation.slang
+    - match: \]\]?
+      scope: punctuation.definition.annotation.end.slang
+      pop: 1
+    - match: '({{Identifier}})(\s*)(?=\()'
+      captures:
+        1: meta.function-call.identifier.slang variable.annotation.slang
+        2: meta.function-call.slang
+      push: call-expression
+    - match: '{{Identifier}}'
+      scope: variable.annotation.slang
+    - match: \.
+      scope: punctuation.accessor.dot.slang
+    - match: '::'
+      scope: punctuation.accessor.double-colon.slang
+    - match: '->'
+      scope: punctuation.accessor.arrow.slang
+
+# ===[ Expressions ]============================================================
+
+  expressions:
+    - include: literal-expressions
+    - include: operators
+    - include: parens
+    - include: builtin-variables
+    - include: function-calls
+    - include: stdlib-functions
+    - include: stdlib-constants
+    - include: variables
+    - include: blocks
+
+  literal-expressions:
+    - include: booleans
+    - include: floats
+    - include: integers
+    - include: strings
+
+  booleans:
+    - match: \btrue\b
+      scope: constant.language.boolean.true.slang
+    - match: \bfalse\b
+      scope: constant.language.boolean.false.slang
+
+  integers:
+    - match: \b(0[xX])([_\h]+)({{IntegerSuffix}})?
+      scope: meta.number.integer.hexadecimal.slang
+      captures:
+        1: constant.numeric.base.slang
+        2: constant.numeric.value.slang
+        3: constant.numeric.suffix.slang
+    - match: \b(0[bB])([_01]+)({{IntegerSuffix}})?
+      scope: meta.number.integer.binary.slang
+      captures:
+        1: constant.numeric.base.slang
+        2: constant.numeric.value.slang
+        3: constant.numeric.suffix.slang
+    - match: \b(0)([_0-7]+)({{IntegerSuffix}})?
+      scope: meta.number.integer.octal.slang
+      captures:
+        1: constant.numeric.base.slang
+        2: constant.numeric.value.slang
+        3: constant.numeric.suffix.slang
+    - match: \b(0|[1-9][_\d]*)({{IntegerSuffix}})?
+      scope: meta.number.integer.decimal.slang
+      captures:
+        1: constant.numeric.value.slang
+        2: constant.numeric.suffix.slang
+
+  floats:
+    - match: '(\b\d+{{DecExponent}}|\b\d+(\.)\d*{{DecExponent}}?|(\.)\d+{{DecExponent}}?)({{FloatSuffix}})?'
+      scope: meta.number.float.decimal.slang
+      captures:
+        1: constant.numeric.value.slang
+        2: punctuation.separator.decimal.slang
+        3: punctuation.separator.decimal.slang
+        4: constant.numeric.suffix.slang
+    - match: '\b(0[xX])(\h+(\.)?{{HexExponent}}|\h*(\.)\h+{{HexExponent}})({{FloatSuffix}})?'
+      scope: meta.number.float.hexadecimal.slang
+      captures:
+        1: constant.numeric.base.slang
+        2: constant.numeric.value.slang
+        3: punctuation.separator.decimal.slang
+        4: punctuation.separator.decimal.slang
+        5: constant.numeric.suffix.slang
+
+  strings:
+    - match: \"
+      scope: punctuation.definition.string.begin.slang
+      push: string-double-body
+    - match: \'
+      scope: punctuation.definition.string.begin.slang
+      push: string-single-body
+    - match: '\bR(\"){{RawStringDelim}}\('
+      captures:
+        1: punctuation.definition.string.begin.slang
+      push: string-raw-body
+
+  string-double-body:
+    - meta_include_prototype: false
+    - meta_scope: meta.string.slang string.quoted.double.slang
+    - match: \"
+      scope: punctuation.definition.string.end.slang
+      pop: 1
+    - include: character-escapes
+    - match: \n
+      pop: 1
+
+  string-single-body:
+    - meta_include_prototype: false
+    - meta_scope: meta.string.slang string.quoted.single.slang
+    - match: \'
+      scope: punctuation.definition.string.end.slang
+      pop: 1
+    - include: character-escapes
+    - match: \n
+      pop: 1
+
+  string-raw-body:
+    - meta_include_prototype: false
+    - meta_scope: meta.string.slang string.quoted.double.slang
+    - match: '\){{RawStringDelim}}(\")'
+      captures:
+        1: punctuation.definition.string.end.slang
+      pop: 1
+
+  character-escapes:
+    - match: '\\[\\''"?abfnrtv]'
+      scope: constant.character.escape.slang
+    - match: \\[0-7]{1,3}
+      scope: constant.character.escape.slang
+    - match: \\x\h+|\\x\{\h+\}
+      scope: constant.character.escape.slang
+    - match: \\u\h{4}|\\U\h{8}|\\u\{\h+\}
+      scope: constant.character.escape.slang
+
+  parens:
+    - match: (?=\()
+      branch_point: lambda-expression
+      branch:
+        - lambda-expression
+        - parens-group
+
+  lambda-expression:
+    - match: \(
+      scope: punctuation.section.parameters.begin.slang
+      set:
+        - lambda-expression-parameters
+        - expect-parameter-name
+        - expect-type
+
+  lambda-expression-parameters:
+    - meta_scope: meta.function.parameters.slang
+    - match: \)
+      scope: punctuation.section.parameters.end.slang
+      set: expect-lambda-arrow
+    - match: ','
+      scope: punctuation.separator.parameters.slang
+      push:
+        - expect-parameter-name
+        - expect-type
+
+  expect-lambda-arrow:
+    - match: '=>'
+      scope: keyword.operator.arrow.slang
+      pop: 1
+    - match: (?=\S)
+      fail: lambda-expression
+
+  parens-group:
+    - match: \(
+      scope: punctuation.section.parens.begin.slang
+      set: parens-body
+
+  parens-body:
+    - meta_scope: meta.parens.slang
+    - match: \)
+      scope: punctuation.section.parens.end.slang
+      pop: 1
+    - include: punctuations
+    - include: constant-declarations
+    - include: type-annotations
+    - include: builtin-types
+    - include: expressions
+
+  expect-parens-group:
+    - include: parens-group
+    - include: else-pop
+
+  blocks:
+    - match: \{
+      scope: punctuation.section.block.begin.slang
+      push: block-body
+
+  block-body:
+    - meta_scope: meta.block.slang
+    - match: \}
+      scope: punctuation.section.block.end.slang
+      pop: 1
+    - include: main
+
+  expect-block:
+    - match: \{
+      scope: punctuation.section.block.begin.slang
+      set: block-body
+    - include: prototype
+    - include: else-pop
+
+  builtin-variables:
+    - match: \bthis\b
+      scope: variable.language.slang
+      push: after-expression
+
+  variables:
+    - match: '{{Identifier}}'
+      scope: variable.other.slang
+      push: after-expression
+
+  expect-variable:
+    - match: '{{Identifier}}'
+      scope: variable.other.slang
+      pop: 1
+
+  after-expression:
+    - include: subscript-expressions
+    - include: member-expressions
+    - include: else-pop
+    - include: eol-pop
+
+  subscript-expressions:
+  # https://github.com/shader-slang/slang/blob/master/docs/language-reference/expressions-operators.md#subscript-expression
+    - match: \[
+      scope: punctuation.section.brackets.begin.slang
+      push: subscript-expression-body
+
+  subscript-expression-body:
+    - meta_scope: meta.brackets.slang
+    - match: \]
+      scope: punctuation.section.brackets.end.slang
+      pop: 1
+    - include: prototype
+    - include: expressions
+
+  member-expressions:
+  # https://github.com/shader-slang/slang/blob/master/docs/language-reference/expressions-member-access.md
+  # https://github.com/shader-slang/slang/blob/master/docs/language-reference/expressions-operators.md#member-expression
+    - match: \.
+      scope: punctuation.accessor.dot.slang
+      push: member-expression-body
+    - match: '::'
+      scope: punctuation.accessor.double-colon.slang
+      push: member-expression-body
+    - match: '->'
+      scope: punctuation.accessor.arrow.slang
+      push: member-expression-body
+
+  member-expression-body:
+    - include: function-calls  # TODO: pop
+    - match: '{{Identifier}}'
+      scope: variable.other.member.slang
+      pop: 1
+    - include: else-pop
+    - include: eol-pop
+
+# ===[ Function Calls ]=========================================================
+
+  function-calls:
+    - match: '(?={{Identifier}})'
+      branch_point: function-call
+      branch:
+        - function-call
+        - fail-function-call
+
+  function-call:
+    - match: \b(?:abort|abs|acos|acosh|all|any|asdouble|asfloat|asfloat16|asin|asinh|asint|asint16|asuint|asuint16|atan|atan2|atanh|bit_cast|bitfieldExtract|bitfieldInsert|ceil|clamp|clip|clock2x32ARB|clockARB|concat|coopVecLoad|coopVecLoadCoherent|coopVecLoadGroupshared|coopVecMatMul|coopVecMatMulAdd|coopVecMatMulAddPacked|coopVecMatMulPacked|coopVecOuterProductAccumulate|coopVecReduceSumAccumulate|copysign|copysign_double|copysign_float|copysign_half|cos|cosh|cospi|countbits|createDynamicObject|cross|cudaBlockDim|cudaBlockIdx|cudaThreadIdx|ddx|ddx_coarse|ddx_fine|ddy|ddy_coarse|ddy_fine|debugBreak|defaultGetDescriptorFromHandle|degrees|detach|determinant|diffPair|distance|divide|dot|dot2add|dot4add_i8packed|dot4add_u8packed|dst|enableVMMDeviceScopeCapabilityIfNeeded|exp|exp10|exp2|f16tof32|f32tof16|f32tof16_|fabs|faceforward|fdim|firstbithigh|firstbitlow|floatCast|floor|fma|fmax|fmax3|fmedian3|fmin|fmin3|fmod|frac|fract|frexp|fwidth|fwidth_coarse|fwidth_fine|getDescriptorFromHandle|getRealtimeClock|getRealtimeClockLow|getStringHash|isfinite|isinf|isnan|ldexp|length|lerp|lit|loadAligned|log|log10|log2|mad|makeArrayFromElement|makeTuple|max|max3|median3|min|min3|modf|msad4|mul|nextafter|nonuniform|normalize|packHalf2x16|packInt4x8|packInt4x8Clamp|packSnorm2x16|packSnorm4x8|packUint4x8|packUint4x8Clamp|packUnorm2x16|packUnorm4x8|pack_clamp_s8|pack_clamp_u8|pack_s8|pack_u8|pow|powr|printf|radians|rcp|reflect|refract|reinterpret|reversebits|rint|round|rsqrt|saturate|select|sign|sin|sincos|sinh|sinpi|smoothstep|sqrt|static_assert|step|storeAligned|syncTorchCudaStream|tan|tanh|tanpi|transpose|trunc|unmodified|unpackHalf2x16ToFloat|unpackHalf2x16ToHalf|unpackInt4x8ToInt16|unpackInt4x8ToInt32|unpackSnorm2x16ToFloat|unpackSnorm2x16ToHalf|unpackSnorm4x8ToFloat|unpackSnorm4x8ToHalf|unpackUint4x8ToUint16|unpackUint4x8ToUint32|unpackUnorm2x16ToFloat|unpackUnorm2x16ToHalf|unpackUnorm4x8ToFloat|unpackUnorm4x8ToHalf|unpack_s8s16|unpack_s8s32|unpack_u8u16|unpack_u8u32|unused|updateDiff|updatePair|updatePrimal|workgroupUniformLoad)\b
+      scope: meta.function-call.identifier.slang support.function.slang
+      set:
+        - expect-call-expression
+        - function-call-meta
+        - type-parameter-clause
+    - match: \b(?:AcceptHitAndEndSearch|AllMemoryBarrier|AllMemoryBarrierWithGroupSync|CallShader|CheckAccessFullyMapped|DeviceMemoryBarrier|DeviceMemoryBarrierWithGroupSync|DispatchMesh|DispatchRaysDimensions|DispatchRaysIndex|EvaluateAttributeAtCentroid|EvaluateAttributeAtSample|EvaluateAttributeSnapped|GeometryIndex|GetAttributeAtVertex|GetClusterID|GetInstanceTraversable|GetLssPositionsAndRadii|GetRenderTargetSampleCount|GetRenderTargetSamplePosition|GetSpherePositionAndRadius|GetTransformListHandle|GetTransformListSize|GetTraversableChild|GetTraversableInstanceId|GetTraversableObjectToWorld|GetTraversableTransformType|GetTraversableWorldToObject|GroupMemoryBarrier|GroupMemoryBarrierWithGroupSync|HitKind|HitTriangleVertexPosition|IgnoreHit|InstanceID|InstanceIndex|InterlockedAdd|InterlockedAddF16Emulated|InterlockedAddF16x2|InterlockedAnd|InterlockedCompareExchange|InterlockedCompareExchangeFloatBitwise|InterlockedCompareStore|InterlockedCompareStoreFloatBitwise|InterlockedExchange|InterlockedMax|InterlockedMin|InterlockedOr|InterlockedXor|IsHelperLane|IsLssHit|IsSphereHit|MaybeReorderThread|NonUniformResourceIndex|ObjectRayDirection|ObjectRayOrigin|ObjectToWorld|ObjectToWorld3x4|ObjectToWorld4x3|PrimitiveIndex|Process2DQuadTessFactorsAvg|Process2DQuadTessFactorsMax|Process2DQuadTessFactorsMin|ProcessIsolineTessFactors|ProcessQuadTessFactorsAvg|ProcessQuadTessFactorsMax|ProcessQuadTessFactorsMin|ProcessTriTessFactorsAvg|ProcessTriTessFactorsMax|ProcessTriTessFactorsMin|QuadAll|QuadAny|QuadReadAcrossDiagonal|QuadReadAcrossX|QuadReadAcrossY|QuadReadLaneAt|RayCurrentTime|RayFlags|RayTCurrent|RayTMin|ReorderThread|ReportHit|ReportHitOptix|SetMeshOutputCounts|TraceMotionRay|TraceRay|WaveActiveAllEqual|WaveActiveAllTrue|WaveActiveAnyTrue|WaveActiveBallot|WaveActiveBitAnd|WaveActiveBitOr|WaveActiveBitXor|WaveActiveCountBits|WaveActiveMax|WaveActiveMin|WaveActiveProduct|WaveActiveSum|WaveBroadcastLaneAt|WaveClusteredRotate|WaveGetActiveMulti|WaveGetConvergedMulti|WaveGetLaneCount|WaveGetLaneEqMask|WaveGetLaneGeMask|WaveGetLaneGtMask|WaveGetLaneIndex|WaveGetLaneLeMask|WaveGetLaneLtMask|WaveGetNumWaves|WaveGetWaveIndex|WaveIsFirstLane|WaveMatch|WaveMultiBitAnd|WaveMultiBitOr|WaveMultiBitXor|WaveMultiMax|WaveMultiMin|WaveMultiPrefixBitAnd|WaveMultiPrefixBitOr|WaveMultiPrefixBitXor|WaveMultiPrefixCountBits|WaveMultiPrefixExclusiveBitAnd|WaveMultiPrefixExclusiveBitOr|WaveMultiPrefixExclusiveBitXor|WaveMultiPrefixExclusiveMax|WaveMultiPrefixExclusiveMin|WaveMultiPrefixExclusiveProduct|WaveMultiPrefixExclusiveSum|WaveMultiPrefixInclusiveBitAnd|WaveMultiPrefixInclusiveBitOr|WaveMultiPrefixInclusiveBitXor|WaveMultiPrefixInclusiveMax|WaveMultiPrefixInclusiveMin|WaveMultiPrefixInclusiveProduct|WaveMultiPrefixInclusiveSum|WaveMultiPrefixProduct|WaveMultiPrefixSum|WaveMultiProduct|WaveMultiSum|WavePrefixBitAnd|WavePrefixBitOr|WavePrefixBitXor|WavePrefixCountBits|WavePrefixMax|WavePrefixMin|WavePrefixProduct|WavePrefixSum|WaveReadLaneAt|WaveReadLaneFirst|WaveRotate|WaveShuffle|WorkgroupCount|WorkgroupSize|WorldRayDirection|WorldRayOrigin|WorldToObject|WorldToObject3x4|WorldToObject4x3|_WaveCountBits)\b
+      scope: meta.function-call.identifier.slang support.function.slang
+      set:
+        - expect-call-expression
+        - function-call-meta
+        - type-parameter-clause
+    - match: '{{Identifier}}'
+      scope: meta.function-call.identifier.slang variable.function.slang
+      set:
+        - expect-call-expression
+        - function-call-meta
+        - type-parameter-clause
+
+  expect-call-expression:
+    - match: \(
+      scope: punctuation.section.arguments.begin.slang
+      set: call-expression-body
+    - match: \s+
+      scope: meta.function-call.slang
+    - include: fail-function-call
+
+  call-expression:
+    - match: \(
+      scope: punctuation.section.arguments.begin.slang
+      set: call-expression-body
+
+  call-expression-body:
+    - meta_scope: meta.function-call.arguments.slang
+    - match: \)
+      scope: punctuation.section.arguments.end.slang
+      set: after-expression
+    - match: \,
+      scope: punctuation.separator.arguments.slang
+    - include: prototype
+    - include: expressions
+
+# ===[ Operators ]==============================================================
+
+  operators:
+    - match: '<<=|>>='
+      scope: keyword.operator.assignment.slang
+    - match: '<<|>>'
+      scope: keyword.operator.bitwise.slang
+    - match: '<=|<|>=|>|==|!='
+      scope: keyword.operator.comparison.slang
+    - match: '[-+*/%&|^]?='
+      scope: keyword.operator.assignment.slang
+    - match: '[-+]{2}|[-+*/%]'
+      scope: keyword.operator.arithmetic.slang
+    - match: '!|&&|\|\|'
+      scope: keyword.operator.logical.slang
+    - match: '~|&|\||\^'
+      scope: keyword.operator.bitwise.slang
+    - match: \?
+      scope: keyword.operator.ternary.slang
+      push: conditional-expression
+    - include: operator-keywords
+
+  conditional-expression:
+    - match: ':'
+      scope: keyword.operator.ternary.slang
+      pop: 1
+    - include: expressions
+    - include: eol-pop
+
+  punctuations:
+    - match: ';'
+      scope: punctuation.terminator.semicolon.slang
+    - match: ','
+      scope: punctuation.separator.comma.slang
+
+# ===[ Keywords ]===============================================================
+
+  operator-keywords:
+    - match: \bis\b
+      scope: keyword.operator.word.slang
+
+  control-keywords:
+    - match: \bif\b
+      scope: keyword.control.conditional.if.slang
+      push:
+        - if-statement-meta
+        - expect-block
+        - expect-parens-group
+    - match: \belse\b
+      scope: keyword.control.conditional.else.slang
+      push:
+        - else-statement-meta
+        - expect-block
+    - match: \bswitch\b
+      scope: keyword.control.conditional.switch.slang
+      push:
+        - switch-statement-meta
+        - expect-block
+        - expect-parens-group
+    - match: \bcase\b
+      scope: keyword.control.conditional.case.slang
+      push: expect-case-expression
+    - match: \bdefault\b
+      scope: keyword.control.conditional.default.slang
+      push: expect-case-expression
+    - match: \bfor\b
+      scope: keyword.control.loop.for.slang
+      push:
+        - for-statement-meta
+        - expect-block
+        - expect-parens-group
+    - match: \bwhile\b
+      scope: keyword.control.loop.while.slang
+      push:
+        - while-statement-meta
+        - expect-block
+        - expect-parens-group
+    - match: \bdo\b
+      scope: keyword.control.do.slang
+      push:
+        - do-statement-meta
+        - expect-block
+    - match: \btry\b
+      scope: keyword.control.exception.try.slang
+    - match: \bcatch\b
+      scope: keyword.control.exception.catch.slang
+      push:
+        - catch-statement-meta
+        - expect-block
+        - expect-parens-group
+    - match: \bbreak\b
+      scope: keyword.control.flow.break.slang
+    - match: \bcontinue\b
+      scope: keyword.control.flow.continue.slang
+    - match: \breturn\b
+      scope: keyword.control.flow.return.slang
+    - match: \bdefer\b
+      scope: keyword.control.flow.defer.slang
+    - match: \bdiscard\b
+      scope: keyword.control.flow.discard.slang
+    - match: \b(?:import|__include)\b
+      scope: keyword.control.import.slang
+
+  expect-case-expression:
+    - match: ':'
+      scope: punctuation.separator.colon.slang
+      pop: 1
+    - include: expressions
+    - include: eol-pop
+
+  misc-keywords:
+    - match: \b(?:__transparent_block|__file_decl)\b
+      scope: keyword.other.slang
+    - match: \b__generic\b
+      scope: keyword.other.slang
+      push: generic-parameter-definition
+    - match: \b(?:get|set)\b
+      scope: keyword.other.slang  # TODO
+
+  generic-parameter-definition:
+    - match: '<'
+      scope: punctuation.definition.generic.begin.slang
+      set: generic-parameter-definition-body
+    - include: else-pop
+    - include: eol-pop
+
+  generic-parameter-definition-body:
+    - meta_scope: meta.generic.slang
+    - match: '>'
+      scope: punctuation.definition.generic.end.slang
+      pop: 1
+    - match: \btypename\b
+      scope: keyword.declaration.generic.slang
+    - match: '{{Identifier}}'
+      scope: support.type.slang
+    - include: eol-pop
+
+  modifier-keywords:
+    - match: \b(?:public|internal|private)\b
+      scope: storage.modifier.slang
+    - match: \b(?:const|property|static|uniform)\b
+      scope: storage.modifier.slang
+    - match: \boverride\b
+      scope: storage.modifier.slang
+
+  declaration-keywords:
+    - include: module-declarations
+    - include: impl-declarations
+    - include: struct-declarations
+    - include: enum-declarations
+    - include: interface-declarations
+    - include: extension-declarations
+    - include: typealias-declarations
+    - include: function-declarations
+    - include: constant-declarations
+    - include: variable-declarations
+
+  constant-declarations:
+    - match: \blet\b
+      scope: keyword.declaration.constant.slang
+
+  variable-declarations:
+    - match: \bvar\b
+      scope: keyword.declaration.variable.slang
+
+  module-declarations:
+    - match: \bmodule\b
+      scope: keyword.declaration.module.slang
+      push: module-name
+
+  module-name:
+    - match: '{{Identifier}}'
+      scope: entity.name.module.slang
+      pop: 1
+    - include: else-pop
+    - include: eol-pop
+
+  impl-declarations:
+    - match: \bimplementing\b
+      scope: keyword.declaration.impl.slang
+      push: impl-name
+
+  impl-name:
+    - match: '{{Identifier}}'
+      scope: entity.name.impl.slang
+      pop: 1
+    - include: else-pop
+    - include: eol-pop
+
+  struct-declarations:
+    # TODO: handle access control modifier keywords in a better way
+    - match: \b(?:(public|internal|private)\s+)?(struct|class|cbuffer)\b
+      captures:
+        1: storage.modifier.slang
+        2: keyword.declaration.struct.slang
+      push:
+        - struct-declaration-meta
+        - struct-name
+
+  struct-name:
+    - match: '{{Identifier}}'
+      scope: entity.name.struct.slang
+      set:
+        - expect-block
+        - generic-where-clause
+        - bases-clause
+        - generic-parameters-clause
+    - include: else-pop
+    - include: eol-pop
+
+  enum-declarations:
+    - match: \benum\b
+      scope: keyword.declaration.enum.slang
+      push:
+        - enum-declaration-meta
+        - expect-block
+        - type-annotation
+        - enum-name
+
+  enum-name:
+    - match: '{{Identifier}}'
+      scope: entity.name.enum.slang
+      pop: 1
+    - include: else-pop
+    - include: eol-pop
+
+  interface-declarations:
+    - match: \binterface\b
+      scope: keyword.declaration.interface.slang
+      push:
+        - interface-declaration-meta
+        - interface-name
+
+  interface-name:
+    - match: '{{Identifier}}'
+      scope: entity.name.interface.slang
+      set: expect-block
+    - include: else-pop
+    - include: eol-pop
+
+  extension-declarations:
+    - match: \bextension\b
+      scope: keyword.declaration.trait.slang
+      push:
+        - extension-declaration-meta
+        - extension-name
+
+  extension-name:
+    - match: '{{Identifier}}'
+      scope: entity.name.trait.slang
+      set:
+        - expect-block
+        - type-annotation
+    - include: else-pop
+    - include: eol-pop
+
+  typealias-declarations:
+    - match: \btypealias\b
+      scope: keyword.declaration.type.slang
+    - match: \btypedef\b
+      scope: keyword.declaration.type.slang
+
+  function-declarations:
+    - match: \bfunc\b
+      scope: keyword.declaration.function.slang
+      push:
+        - function-declaration-meta
+        - function-name
+
+  function-name:
+    - match: '{{Identifier}}'
+      scope: entity.name.function.slang
+      set:
+        - expect-block
+        - result-type-clause
+        - generic-where-clause
+        - parameters-clause
+        - generic-parameters-clause
+    - include: else-pop
+    - include: eol-pop
+
+  parameters-clause:
+    - match: \(
+      scope: punctuation.section.parameters.begin.slang
+      set: parameters-body
+    - include: else-pop
+
+  parameters-body:
+    - clear_scopes: 1
+    - meta_scope: meta.function.parameters.slang
+    - match: \)
+      scope: punctuation.section.parameters.end.slang
+      pop: 1
+    - match: ','
+      scope: punctuation.separator.parameters.slang
+    - include: parameter-directions
+    - match: '{{Identifier}}'
+      scope: variable.parameter.slang
+    - include: type-annotations
+
+  parameter-directions:
+    - match: \b(?:in|out|inout|take|borrow|ref)\b
+      scope: storage.modifier.slang
+
+  parameter-direction:
+    - match: \b(?:in|out|inout|take|borrow|ref)\b
+      scope: storage.modifier.slang
+      pop: 1
+    - include: else-pop
+
+  expect-parameter-name:
+    - match: '{{Identifier}}'
+      scope: variable.parameter.slang
+      pop: 1
+    - include: else-pop
+
+  parameter-default-value:
+    - match: '(=)\s*'
+      captures:
+        1: keyword.operator.assignment.slang
+      set: parameter-default-value-expression
+    - include: else-pop
+
+  parameter-default-value-expression:
+    - include: expressions
+    - include: immediately-pop
+
+  result-type-clause:
+    - match: '->'
+      scope: punctuation.separator.return-type.slang
+      set: expect-type
+    - include: else-pop
+
+  traditional-declarations:
+    - match: '(?={{Identifier}})'
+      branch_point: traditional-declaration
+      branch:
+        - traditional-function-declaration
+        - traditional-variable-declaration
+
+  traditional-function-declaration:
+    - match: ''
+      set:
+        - function-declaration-meta
+        - expect-function-name
+        - expect-type
+
+  expect-function-name:
+    - match: '{{Identifier}}'
+      scope: entity.name.function.slang
+      set:
+        - expect-block
+        - generic-where-clause
+        - expect-traditional-parameters-clause
+        - generic-parameters-clause
+    - include: fail-traditional-declaration
+
+  expect-traditional-parameters-clause:
+    - match: (?=\()
+      set: traditional-parameters-clause
+    - include: fail-traditional-declaration
+
+  traditional-parameters-clause:
+    - match: \(
+      scope: punctuation.section.parameters.begin.slang
+      set: traditional-parameters-body
+
+  traditional-parameters-body:
+    - clear_scopes: 1
+    - meta_scope: meta.function.parameters.slang
+    - match: \)
+      scope: punctuation.section.parameters.end.slang
+      pop: 1
+    - include: prototype
+    - match: ','
+      scope: punctuation.separator.parameters.slang
+    - include: type-annotations
+    - include: parameter-directions
+    - match: \buniform\b
+      scope: storage.modifier.slang
+    - match: (?=\S)
+      push:
+        - parameter-default-value
+        - expect-parameter-name
+        - expect-type
+
+  traditional-variable-declaration:
+    - match: ''
+      set:
+        - expect-variable-name
+        - expect-type
+
+  expect-variable-name:
+    - match: '(?={{ReservedWord}})'
+      fail: traditional-declaration
+    - match: '(\*)?({{Identifier}})'
+      captures:
+        1: keyword.operator.arithmetic.slang
+        2: variable.other.slang
+      set: after-expression
+    - include: fail-traditional-declaration
+
+  labels:
+    - match: '({{Identifier}})(:)\s*$'
+      captures:
+        1: entity.name.label.slang
+        2: punctuation.separator.colon.slang
+
+# TODO: clean up unnecessary contexts
+  type-annotations:
+    - match: ':'
+      scope: punctuation.separator.type.slang
+      push: expect-type-or-functype
+
+  type-annotation:
+    - match: ':'
+      scope: punctuation.separator.type.slang
+      set: expect-type-or-functype
+    - include: else-pop
+
+  # binding-semantics:
+  #   - match: ':'
+  #     scope: punctuation.separator.type.slang
+  #     push: expect-type-or-functype
+
+  # binding-semantic:
+  #   - match: ':'
+  #     scope: punctuation.separator.type.slang
+  #     set: expect-type-or-functype
+
+  bases-clause:
+    - match: ':'
+      scope: punctuation.separator.type.slang
+      set: bases-clause-body
+    - include: else-pop
+
+  bases-clause-body:
+    - match: '{{Identifier}}'
+      scope: entity.other.inherited-class.slang
+    - match: ','
+      scope: punctuation.separator.comma.slang
+    - include: else-pop
+
+# ===[ Types ]==================================================================
+
+  builtin-types:
+    - match: \bvoid\b
+      scope: storage.type.slang
+    - match: \b(?:int8_t|int16_t|int|int64_t|uint8_t|uint16_t|uint|uint64_t|half|float|double|bool)(?:[234](?:x[234])?)?\b
+      scope: storage.type.slang
+    - match: \b(?:vector|matrix)\b
+      scope: storage.type.slang
+      push: generic-parameters-clause
+    - include: stdlib-types
+    - include: stdlib-interfaces
+
+  # type-expressions:
+  #   - include: builtin-types
+  #   - match: '{{Identifier}}'
+  #     scope: support.type.slang
+  #     push: generic-parameters-clause
+
+  expect-type:
+    - match: \bvoid\b
+      scope: storage.type.slang
+      pop: 1
+    - match: \b(?:int8_t|int16_t|int|int64_t|uint8_t|uint16_t|uint|uint64_t|half|float|double|bool)(?:[234](?:x[234])?)?\b
+      scope: storage.type.slang
+      pop: 1
+    - match: \b(?:vector|matrix)\b
+      scope: storage.type.slang
+      set: generic-parameters-clause
+    - match: '{{Identifier}}'
+      scope: support.type.slang
+      set: generic-parameters-clause
+    - include: else-pop
+    - include: eol-pop
+
+  expect-type-or-functype:
+    - match: \bfunctype\b
+      scope: storage.type.slang
+      set:
+        - result-type-clause
+        - functype-parameters
+    - include: expect-type
+
+  functype-parameters:
+    - match: \(
+      scope: punctuation.section.parameters.begin.slang
+      set: functype-parameters-body
+    - include: else-pop
+
+  functype-parameters-body:
+    - meta_scope: meta.function.parameters.slang
+    - match: \)
+      scope: punctuation.section.parameters.end.slang
+      pop: 1
+    - match: ','
+      scope: punctuation.separator.parameters.slang
+    - include: builtin-types
+
+  generic-parameters-clause:
+    - match: '<'
+      scope: punctuation.definition.generic.begin.slang
+      set: generic-parameters-body
+    - include: else-pop
+    - include: eol-pop
+
+  generic-parameters-body:
+    - meta_scope: meta.generic.slang
+    - match: '>'
+      scope: punctuation.definition.generic.end.slang
+      pop: 1
+    - match: ','
+      scope: punctuation.separator.comma.slang
+    - include: constant-declarations
+    - include: integers
+    # - match: \b[A-Z]\b
+    #   scope: variable.parameter.generic.slang
+    - include: builtin-types
+    - match: '{{Identifier}}'
+      scope: support.type.slang
+    - include: type-annotations
+    - include: eol-pop
+
+  type-parameter-clause:
+    - match: '<'
+      scope: punctuation.definition.generic.begin.slang
+      set: type-parameter-body
+    - include: else-pop
+    - include: eol-pop
+
+  type-parameter-body:
+    - meta_scope: meta.generic.slang
+    - match: '>'
+      scope: punctuation.definition.generic.end.slang
+      pop: 1
+    - match: ','
+      scope: punctuation.separator.comma.slang
+    - include: builtin-types
+    - match: '{{Identifier}}'
+      scope: support.type.slang
+    - include: eol-pop
+
+  generic-where-clause:
+    - match: \bwhere\b
+      scope: keyword.other.slang
+      push: generic-where-clause-body
+    - include: prototype
+    - include: else-pop
+
+  generic-where-clause-body:
+    - match: (?=\bwhere\b)
+      pop: 1
+    - match: \boptional\b
+      scope: storage.modifier.slang
+    - match: '{{Identifier}}'
+      scope: support.type.slang
+      push: generic-parameters-clause
+    - match: ':'
+      scope: punctuation.separator.type.slang
+    - match: ','
+      scope: punctuation.separator.comma.slang
+    - include: else-pop
+    - include: eol-pop
+
+# ===[ Standard Library ]=======================================================
+
+  stdlib-types:
+    # https://docs.shader-slang.org/en/latest/external/core-module-reference/types/index.html
+    - match: \b(?:AppendStructuredBuffer|ApplyForBwdFuncType|Array|Atomic|AtomicAdd|BFloat16|BindlessDescriptorOptions|Buffer|BuiltInTriangleIntersectionAttributes|BwdCallableFuncType|BwdDiffFuncType|ByteAddressBuffer|CANDIDATE_TYPE|CDataLayout|COMMITTED_STATUS|ConstantBuffer|ConsumeStructuredBuffer|CoopMat|CoopMatClampMode|CoopMatMatrixLayout|CoopMatMatrixUse|CoopVec|CoopVecComponentType|CoopVecMatrixLayout|DefaultDataLayout|DefaultPushConstantDataLayout|DefaultVkBindlessBindings|DepthTexture1D|DepthTexture1DArray|DepthTexture2D|DepthTexture2DArray|DepthTexture2DMS|DepthTexture2DMSArray|DepthTexture3D|DepthTextureCube|DepthTextureCubeArray|DescriptorAccess|DescriptorHandle|DescriptorKind|DiffTensorView|DifferentialPair|DifferentialPtrPair|DispatchNodeInputRecord|FeedbackTexture2D|FeedbackTexture2DArray|FloatE4M3|FloatE5M2|FwdDiffFuncType|HitObject|ImmutablePtr|InputPatch|LayoutPtr|LineStream|MemoryOrder|NativeString|NodePayloadPtr|NullDifferential|Optional|OutputIndices|OutputPatch|OutputPrimitives|OutputVertices|ParameterBlock|PointStream|Ptr|RAYQUERY_FLAG|RAY_FLAG|RWBuffer|RWByteAddressBuffer|RWSampler1D|RWSampler1DArray|RWSampler2D|RWSampler2DArray|RWSampler2DMS|RWSampler2DMSArray|RWSampler3D|RWStructuredBuffer|RWTexture1D|RWTexture1DArray|RWTexture2D|RWTexture2DArray|RWTexture2DMS|RWTexture2DMSArray|RWTexture3D|RasterizerOrderedBuffer|RasterizerOrderedByteAddressBuffer|RasterizerOrderedSampler1D|RasterizerOrderedSampler1DArray|RasterizerOrderedSampler2D|RasterizerOrderedSampler2DArray|RasterizerOrderedSampler3D|RasterizerOrderedStructuredBuffer|RasterizerOrderedTexture1D|RasterizerOrderedTexture1DArray|RasterizerOrderedTexture2D|RasterizerOrderedTexture2DArray|RasterizerOrderedTexture3D|RayDesc|RayQuery|RaytracingAccelerationStructure|RematFuncType|SAMPLER_FEEDBACK_MIN_MIP|SAMPLER_FEEDBACK_MIP_REGION_USED|Sampler1D|Sampler1DArray|Sampler1DArrayShadow|Sampler1DShadow|Sampler2D|Sampler2DArray|Sampler2DArrayShadow|Sampler2DMS|Sampler2DMSArray|Sampler2DMSArrayShadow|Sampler2DMSShadow|Sampler2DShadow|Sampler3D|Sampler3DShadow|SamplerComparisonState|SamplerCube|SamplerCubeArray|SamplerCubeArrayShadow|SamplerCubeShadow|SamplerState|ScalarDataLayout|SideEffectBehavior|Std140DataLayout|Std430DataLayout|String|StructuredBuffer|SubpassInput|SubpassInputMS|TRAVERSABLE_TRANSFORM_TYPE|TensorLayout|TensorView|Texture1D|Texture1DArray|Texture2D|Texture2DArray|Texture2DMS|Texture2DMSArray|Texture3D|TextureBuffer|TextureCube|TextureCubeArray|TextureFootprint|TextureFootprint2D|TextureFootprint3D|TorchTensor|TriangleStream|Tuple|VkMutableBindlessBindings|WSampler1D|WSampler1DArray|WSampler2D|WSampler2DArray|WSampler3D|WTexture1D|WTexture1DArray|WTexture2D|WTexture2DArray|WTexture3D)\b
+      scope: support.type.slang
+      push:
+        - generic-parameters-clause
+
+  stdlib-interfaces:
+    # https://docs.shader-slang.org/en/latest/external/core-module-reference/interfaces/index.html
+    - match: \b(?:IArithmetic|IArithmeticAtomicable|IArrray|IAtomicable|IBackwardDifferentiable|IBitAtomicable|IBufferDataLayout|IBwdCallable|IComparable|ICoopElement|IDefaultInitializable|IDiffTensorWrapper|IDifferentiable|IDifferentiableArithmetic|IDifferentiableFunc|IDifferentiableMutatingFunc|IDifferentiablePtrType|IFloat|IFloatingPointCoopElement|IForwardDifferentiable|IFunc|IInteger|ILogical|IMutatingFunc|IOpaqueDescriptor|IPhysicalBuffer|IRWArray|IRWPhysicalBuffer|IRangedValue|ITexelElement)\b
+      scope: support.type.slang
+
+  # TODO: remove redundant regex definitions which are used in the function-call context too
+  stdlib-functions:
+    # https://docs.shader-slang.org/en/latest/external/core-module-reference/global-decls/index.html
+    - match: \b(?:abort|abs|acos|acosh|all|any|asdouble|asfloat|asfloat16|asin|asinh|asint|asint16|asuint|asuint16|atan|atan2|atanh|bit_cast|bitfieldExtract|bitfieldInsert|ceil|clamp|clip|clock2x32ARB|clockARB|concat|coopVecLoad|coopVecLoadCoherent|coopVecLoadGroupshared|coopVecMatMul|coopVecMatMulAdd|coopVecMatMulAddPacked|coopVecMatMulPacked|coopVecOuterProductAccumulate|coopVecReduceSumAccumulate|copysign|copysign_double|copysign_float|copysign_half|cos|cosh|cospi|countbits|createDynamicObject|cross|cudaBlockDim|cudaBlockIdx|cudaThreadIdx|ddx|ddx_coarse|ddx_fine|ddy|ddy_coarse|ddy_fine|debugBreak|defaultGetDescriptorFromHandle|degrees|detach|determinant|diffPair|distance|divide|dot|dot2add|dot4add_i8packed|dot4add_u8packed|dst|enableVMMDeviceScopeCapabilityIfNeeded|exp|exp10|exp2|f16tof32|f32tof16|f32tof16_|fabs|faceforward|fdim|firstbithigh|firstbitlow|floatCast|floor|fma|fmax|fmax3|fmedian3|fmin|fmin3|fmod|frac|fract|frexp|fwidth|fwidth_coarse|fwidth_fine|getDescriptorFromHandle|getRealtimeClock|getRealtimeClockLow|getStringHash|isfinite|isinf|isnan|ldexp|length|lerp|lit|loadAligned|log|log10|log2|mad|makeArrayFromElement|makeTuple|max|max3|median3|min|min3|modf|msad4|mul|nextafter|nonuniform|normalize|packHalf2x16|packInt4x8|packInt4x8Clamp|packSnorm2x16|packSnorm4x8|packUint4x8|packUint4x8Clamp|packUnorm2x16|packUnorm4x8|pack_clamp_s8|pack_clamp_u8|pack_s8|pack_u8|pow|powr|printf|radians|rcp|reflect|refract|reinterpret|reversebits|rint|round|rsqrt|saturate|select|sign|sin|sincos|sinh|sinpi|smoothstep|sqrt|static_assert|step|storeAligned|syncTorchCudaStream|tan|tanh|tanpi|transpose|trunc|unmodified|unpackHalf2x16ToFloat|unpackHalf2x16ToHalf|unpackInt4x8ToInt16|unpackInt4x8ToInt32|unpackSnorm2x16ToFloat|unpackSnorm2x16ToHalf|unpackSnorm4x8ToFloat|unpackSnorm4x8ToHalf|unpackUint4x8ToUint16|unpackUint4x8ToUint32|unpackUnorm2x16ToFloat|unpackUnorm2x16ToHalf|unpackUnorm4x8ToFloat|unpackUnorm4x8ToHalf|unpack_s8s16|unpack_s8s32|unpack_u8u16|unpack_u8u32|unused|updateDiff|updatePair|updatePrimal|workgroupUniformLoad)\b
+      scope: support.function.slang
+    - match: \b(?:AcceptHitAndEndSearch|AllMemoryBarrier|AllMemoryBarrierWithGroupSync|CallShader|CheckAccessFullyMapped|DeviceMemoryBarrier|DeviceMemoryBarrierWithGroupSync|DispatchMesh|DispatchRaysDimensions|DispatchRaysIndex|EvaluateAttributeAtCentroid|EvaluateAttributeAtSample|EvaluateAttributeSnapped|GeometryIndex|GetAttributeAtVertex|GetClusterID|GetInstanceTraversable|GetLssPositionsAndRadii|GetRenderTargetSampleCount|GetRenderTargetSamplePosition|GetSpherePositionAndRadius|GetTransformListHandle|GetTransformListSize|GetTraversableChild|GetTraversableInstanceId|GetTraversableObjectToWorld|GetTraversableTransformType|GetTraversableWorldToObject|GroupMemoryBarrier|GroupMemoryBarrierWithGroupSync|HitKind|HitTriangleVertexPosition|IgnoreHit|InstanceID|InstanceIndex|InterlockedAdd|InterlockedAddF16Emulated|InterlockedAddF16x2|InterlockedAnd|InterlockedCompareExchange|InterlockedCompareExchangeFloatBitwise|InterlockedCompareStore|InterlockedCompareStoreFloatBitwise|InterlockedExchange|InterlockedMax|InterlockedMin|InterlockedOr|InterlockedXor|IsHelperLane|IsLssHit|IsSphereHit|MaybeReorderThread|NonUniformResourceIndex|ObjectRayDirection|ObjectRayOrigin|ObjectToWorld|ObjectToWorld3x4|ObjectToWorld4x3|PrimitiveIndex|Process2DQuadTessFactorsAvg|Process2DQuadTessFactorsMax|Process2DQuadTessFactorsMin|ProcessIsolineTessFactors|ProcessQuadTessFactorsAvg|ProcessQuadTessFactorsMax|ProcessQuadTessFactorsMin|ProcessTriTessFactorsAvg|ProcessTriTessFactorsMax|ProcessTriTessFactorsMin|QuadAll|QuadAny|QuadReadAcrossDiagonal|QuadReadAcrossX|QuadReadAcrossY|QuadReadLaneAt|RayCurrentTime|RayFlags|RayTCurrent|RayTMin|ReorderThread|ReportHit|ReportHitOptix|SetMeshOutputCounts|TraceMotionRay|TraceRay|WaveActiveAllEqual|WaveActiveAllTrue|WaveActiveAnyTrue|WaveActiveBallot|WaveActiveBitAnd|WaveActiveBitOr|WaveActiveBitXor|WaveActiveCountBits|WaveActiveMax|WaveActiveMin|WaveActiveProduct|WaveActiveSum|WaveBroadcastLaneAt|WaveClusteredRotate|WaveGetActiveMulti|WaveGetConvergedMulti|WaveGetLaneCount|WaveGetLaneEqMask|WaveGetLaneGeMask|WaveGetLaneGtMask|WaveGetLaneIndex|WaveGetLaneLeMask|WaveGetLaneLtMask|WaveGetNumWaves|WaveGetWaveIndex|WaveIsFirstLane|WaveMatch|WaveMultiBitAnd|WaveMultiBitOr|WaveMultiBitXor|WaveMultiMax|WaveMultiMin|WaveMultiPrefixBitAnd|WaveMultiPrefixBitOr|WaveMultiPrefixBitXor|WaveMultiPrefixCountBits|WaveMultiPrefixExclusiveBitAnd|WaveMultiPrefixExclusiveBitOr|WaveMultiPrefixExclusiveBitXor|WaveMultiPrefixExclusiveMax|WaveMultiPrefixExclusiveMin|WaveMultiPrefixExclusiveProduct|WaveMultiPrefixExclusiveSum|WaveMultiPrefixInclusiveBitAnd|WaveMultiPrefixInclusiveBitOr|WaveMultiPrefixInclusiveBitXor|WaveMultiPrefixInclusiveMax|WaveMultiPrefixInclusiveMin|WaveMultiPrefixInclusiveProduct|WaveMultiPrefixInclusiveSum|WaveMultiPrefixProduct|WaveMultiPrefixSum|WaveMultiProduct|WaveMultiSum|WavePrefixBitAnd|WavePrefixBitOr|WavePrefixBitXor|WavePrefixCountBits|WavePrefixMax|WavePrefixMin|WavePrefixProduct|WavePrefixSum|WaveReadLaneAt|WaveReadLaneFirst|WaveRotate|WaveShuffle|WorkgroupCount|WorkgroupSize|WorldRayDirection|WorldRayOrigin|WorldToObject|WorldToObject3x4|WorldToObject4x3|_WaveCountBits)\b
+      scope: support.function.slang
+
+  stdlib-constants:
+    - match: \b(?:CANDIDATE_NON_OPAQUE_TRIANGLE|CANDIDATE_PROCEDURAL_PRIMITIVE|COMMITTED_NOTHING|COMMITTED_PROCEDURAL_PRIMITIVE_HIT|COMMITTED_TRIANGLE_HIT|HIT_KIND_TRIANGLE_BACK_FACE|HIT_KIND_TRIANGLE_FRONT_FACE|RAYQUERY_FLAG_ALLOW_OPACITY_MICROMAPS|RAYQUERY_FLAG_NONE|RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH|RAY_FLAG_CULL_BACK_FACING_TRIANGLES|RAY_FLAG_CULL_FRONT_FACING_TRIANGLES|RAY_FLAG_CULL_NON_OPAQUE|RAY_FLAG_CULL_OPAQUE|RAY_FLAG_FORCE_NON_OPAQUE|RAY_FLAG_FORCE_OMM_2_STATE|RAY_FLAG_FORCE_OPAQUE|RAY_FLAG_NONE|RAY_FLAG_SKIP_CLOSEST_HIT_SHADER|RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES|RAY_FLAG_SKIP_TRIANGLES)\b
+      scope: support.constant.slang
