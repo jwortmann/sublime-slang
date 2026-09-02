@@ -529,7 +529,7 @@
 //         ^^^^^^ storage.type.slang
 //               ^ punctuation.definition.generic.end.slang
 
-// ===[ Declarations ]==========================================================
+// ===[ Misc Declarations ]=====================================================
 
     module scene;
 //  ^^^^^^ keyword.declaration.module.slang
@@ -545,6 +545,87 @@
 //  ^^^^^^^^^^^^ keyword.declaration.impl.slang
 //               ^^^^^^^ meta.string.slang string.quoted.double.slang
 //                      ^ punctuation.terminator.semicolon.slang
+
+    typealias vec3 = float3;
+//  ^^^^^^^^^ keyword.declaration.type.slang
+//            ^^^^ variable.other.slang
+//                 ^ keyword.operator.assignment.slang
+//                   ^^^^^^ storage.type.slang
+//                         ^ punctuation.terminator.semicolon.slang
+
+// FIXME
+    public typealias Differential = WaveTangledVector<T, ShMemSize, N, SubgroupSize, SubgroupCount>;
+    public typealias ShMemPool = SharedMemoryPool<ShMemSize>;
+    internal typealias uvec<int Dim> = Array<uint32_t, Dim>;
+
+    typedef float3 vec3;
+//  ^^^^^^^ keyword.declaration.type.slang
+//          ^^^^^^ storage.type.slang
+//                 ^^^^ variable.other.slang
+//                     ^ punctuation.terminator.semicolon.slang
+
+// ===[ Namespace Declarations ]================================================
+
+    namespace ns
+//  ^^^^^^^^^^^^^ meta.namespace.slang
+//  ^^^^^^^^^ keyword.declaration.namespace.slang
+//            ^^ entity.name.namespace.slang
+//            @@ definition
+    {
+//  ^^ meta.namespace.slang meta.block.slang
+//  ^ punctuation.section.block.begin.slang
+        int f();
+    }
+
+    namespace ns1.ns2
+//  ^^^^^^^^^^^^^^^^^^ meta.namespace.slang
+//  ^^^^^^^^^ keyword.declaration.namespace.slang
+//            ^^^ entity.name.namespace.slang
+//            @@@ definition
+//               ^ punctuation.accessor.dot.slang
+//                ^^^ entity.name.namespace.slang
+//                @@@ definition
+    {
+//  ^^ meta.namespace.slang meta.block.slang
+//  ^ punctuation.section.block.begin.slang
+        int f();
+    }
+
+    namespace ns1::ns2
+//  ^^^^^^^^^^^^^^^^^^^ meta.namespace.slang
+//  ^^^^^^^^^ keyword.declaration.namespace.slang
+//            ^^^ entity.name.namespace.slang
+//            @@@ definition
+//               ^^ punctuation.accessor.double-colon.slang
+//                 ^^^ entity.name.namespace.slang
+//                 @@@ definition
+    {
+//  ^^ meta.namespace.slang meta.block.slang
+//  ^ punctuation.section.block.begin.slang
+        int f();
+    }
+
+    namespace ns1
+//  ^^^^^^^^^^^^^^ meta.namespace.slang
+//  ^^^^^^^^^ keyword.declaration.namespace.slang
+//            ^^^ entity.name.namespace.slang
+//            @@@ definition
+    {
+//  ^^ meta.namespace.slang meta.block.slang
+//  ^ punctuation.section.block.begin.slang
+        namespace ns2
+//      ^^^^^^^^^^^^^^ meta.namespace.slang meta.namespace.slang
+//      ^^^^^^^^^ keyword.declaration.namespace.slang
+//                ^^^ entity.name.namespace.slang
+//                @@@ definition
+        {
+//      ^^ meta.namespace.slang meta.block.slang meta.namespace.slang meta.block.slang
+//      ^ punctuation.section.block.begin.slang
+            int f();
+        }
+    }
+
+// ===[ Struct Declarations ]===================================================
 
     struct MyData
 //  ^^^^^^^^^^^^^^ meta.struct.slang
@@ -577,6 +658,18 @@
 //              ^^^ storage.type.slang
 //                  ^^^^^^^ variable.other.slang
 //                         ^ punctuation.terminator.semicolon.slang
+    }
+
+    struct VertexOutput
+    {
+        nointerpolation int a : SOME_VALUE;
+        float3              b : SV_Position;
+    }
+
+    struct MyType : IDifferentiable
+    {
+        no_diff float member;
+        float someOtherMember;
     }
 
     struct MyType
@@ -628,6 +721,8 @@
 //  ^ meta.struct.slang meta.block.slang punctuation.section.block.end.slang
 //   ^ - meta.struct - meta.block
 
+// ===[ Enum Declarations ]=====================================================
+
     enum Channel
 //  ^^^^^^^^^^^^^ meta.enum.slang
 //  ^^^^ keyword.declaration.enum.slang
@@ -658,18 +753,7 @@
         Red, Green, Blue
     }
 
-    typealias vec3 = float3;
-//  ^^^^^^^^^ keyword.declaration.type.slang
-//            ^^^^ variable.other.slang
-//                 ^ keyword.operator.assignment.slang
-//                   ^^^^^^ storage.type.slang
-//                         ^ punctuation.terminator.semicolon.slang
-
-    typedef float3 vec3;
-//  ^^^^^^^ keyword.declaration.type.slang
-//          ^^^^^^ storage.type.slang
-//                 ^^^^ variable.other.slang
-//                     ^ punctuation.terminator.semicolon.slang
+// ===[ Function Declarations ]=================================================
 
     func addSomeThings(x : int, y : float) -> float
 //  ^^^^^^^^^^^^^^^^^^ meta.function.slang
@@ -740,9 +824,11 @@
     }
 
     float addSomeThings(int x, float y)
+//  ^^^^^^^^^^^^^^^^^^^ meta.function.slang
 //  ^^^^^ storage.type.slang
-//        ^^^^^^^^^^^^^ meta.function.slang entity.name.function.slang
+//        ^^^^^^^^^^^^^ entity.name.function.slang
 //        @@@@@@@@@@@@@ definition
+//                     ^^^^^^^^^^^^^^^^ meta.function.parameters.slang
 //                     ^ punctuation.section.parameters.begin.slang
 //                      ^^^ storage.type.slang
 //                          ^ variable.parameter.slang
@@ -754,7 +840,43 @@
 //  ^^ meta.function.slang meta.block.slang
 //  ^ punctuation.section.block.begin.slang
         return x + y;
-//      ^^^^^^ keyword.control.flow.return.slang
+    }
+
+// TODO: meta.function scope should include the `public` keyword
+    public float addSomeThings(int x, float y)
+//         ^^^^^^^^^^^^^^^^^^^ meta.function.slang
+//  ^^^^^^ storage.modifier.slang
+//         ^^^^^ storage.type.slang
+//               ^^^^^^^^^^^^^ entity.name.function.slang
+//               @@@@@@@@@@@@@ definition
+//                            ^^^^^^^^^^^^^^^^ meta.function.parameters.slang
+//                            ^ punctuation.section.parameters.begin.slang
+//                             ^^^ storage.type.slang
+//                                 ^ variable.parameter.slang
+//                                  ^ punctuation.separator.parameters.slang
+//                                    ^^^^^ storage.type.slang
+//                                          ^ variable.parameter.slang
+//                                           ^ punctuation.section.parameters.end.slang
+    {
+//  ^^ meta.function.slang meta.block.slang
+//  ^ punctuation.section.block.begin.slang
+        return x + y;
+    }
+
+// FIXME
+    int test(MyType* pObj)
+    {
+        MyType* pNext = pObj + 1;
+        MyType* pNext2 = &pNext[1];
+        return pNext.a + pNext->a + (*pNext2).a + pNext2[0].a;
+    }
+
+// FIXME
+    int f() throws MyError
+    {
+        if (computerIsBroken())
+            throw MyError.CatastrophicFailure;
+        return 42;
     }
 
     T compute<T:IInteger>(T a, T b)
@@ -782,6 +904,29 @@
         return a * b + T(1);
     }
 
+    [shader("closesthit")]
+    void MyClosestHitShader(inout RayPayload payload, in MyAttributes attr)
+//  ^^^^^^^^^^^^^^^^^^^^^^^ meta.function.slang
+//  ^^^^ storage.type.slang
+//       ^^^^^^^^^^^^^^^^^^ entity.name.function.slang
+//       @@@@@@@@@@@@@@@@@@ definition
+//                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ meta.function.parameters.slang
+//                         ^ punctuation.section.parameters.begin.slang
+//                          ^^^^^ storage.modifier.slang
+//                                ^^^^^^^^^^ support.type.slang
+//                                           ^^^^^^^ variable.parameter.slang
+//                                                  ^ punctuation.separator.parameters.slang
+//                                                    ^^ storage.modifier.slang
+//                                                       ^^^^^^^^^^^^ support.type.slang
+//                                                                    ^^^^ variable.parameter.slang
+//                                                                        ^ punctuation.section.parameters.end.slang
+    {
+//  ^^ meta.function.slang meta.block.slang
+//  ^ punctuation.section.block.begin.slang
+    }
+
+// ===[ Extension Declarations ]================================================
+
     extension MyVector
 //  ^^^^^^^^^^^^^^^^^^^ meta.trait.slang
 //  ^^^^^^^^^ keyword.declaration.trait.slang
@@ -801,10 +946,29 @@
 //            @@@@@@@@ definition
 //                     ^ punctuation.separator.type.slang
 //                       ^^^^^^^^^^ support.type.slang
-    {}
+    {
 //  ^^ meta.trait.slang meta.block.slang
 //  ^ punctuation.section.block.begin.slang
-//   ^ punctuation.section.block.end.slang
+    }
+
+    internal extension<T> Ptr<T, Access.ReadWrite, AddressSpace.Device> : IPointerLikeAddress<T>
+//           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ meta.trait.slang
+//           ^^^^^^^^^ keyword.declaration.trait.slang
+//                    ^^^ meta.generic.slang
+//                    ^ punctuation.definition.generic.begin.slang
+//                     ^ support.type.slang
+//                      ^ punctuation.definition.generic.end.slang
+//                        ^^^ entity.name.trait.slang
+//                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ meta.generic.slang
+//                                                                      ^ punctuation.separator.type.slang
+//                                                                        ^^^^^^^^^^^^^^^^^^^ support.type.slang
+//                                                                                           ^^^ meta.generic.slang
+        where T : __BuiltinFloatingPointType
+        where T.Differential == T
+    {
+//  ^^ meta.trait.slang meta.block.slang
+//  ^ punctuation.section.block.begin.slang
+    }
 
 // ===[ Interfaces and Generics ]===============================================
 
@@ -1008,6 +1172,29 @@
 //  ^ punctuation.section.block.begin.slang
     }
 
+    public struct ReLU<T> : IActivation<T>
+//  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ meta.struct.slang
+//  ^^^^^^ storage.modifier.slang
+//         ^^^^^^ keyword.declaration.struct.slang
+//                ^^^^ entity.name.struct.slang
+//                    ^^^ meta.generic.slang
+//                    ^ punctuation.definition.generic.begin.slang
+//                     ^ support.type.slang
+//                      ^ punctuation.definition.generic.end.slang
+//                        ^ punctuation.separator.type.slang
+//                          ^^^^^^^^^^^ entity.other.inherited-class.slang
+//                                     ^ punctuation.definition.generic.begin.slang
+//                                      ^ support.type.slang
+//                                       ^ punctuation.definition.generic.end.slang
+        where T : __BuiltinFloatingPointType
+        where T.Differential == T
+//      ^^^^^ keyword.other.slang
+//                           ^^ keyword.operator.comparison.slang
+    {
+//  ^^ meta.struct.slang meta.block.slang
+//  ^ punctuation.section.block.begin.slang
+    }
+
     interface IFoo
     {
         property int count {get; set;}
@@ -1019,12 +1206,41 @@
     struct ArrayIterator : IIterator
     {
         uint index;
-// FIXME
         __init(int x) { index = x; }
+//      ^^^^^^ meta.function.slang keyword.other.slang
+//            ^^^^^^^ meta.function.parameters.slang
+//            ^ punctuation.section.parameters.begin.slang
+//             ^^^ storage.type.slang
+//                 ^ variable.parameter.slang
+//                  ^ punctuation.section.parameters.end.slang
+//                    ^^^^^^^^^^^^^^ meta.function.slang meta.block.slang
+        public __subscript(int index) -> T
+        {
+        }
         ArrayIterator next()
         {
             return ArrayIterator(index + 1);
         }
+    }
+
+// FIXME
+    public interface IActivation<T>
+        where T : __BuiltinFloatingPointType
+        where T.Differential == T
+    {
+
+    }
+
+    public interface IStaticEncoder<T,
+        InArray,
+        OutArray
+        >
+        where T : __BuiltinFloatingPointType
+        where T.Differential == T
+        where InArray : IArrayAccessor<T>
+        where OutArray : IArrayAccessor<T>
+    {
+
     }
 
 // ===[ Control Flow ]==========================================================
@@ -1074,6 +1290,15 @@
         default:
 //      ^^^^^^^ keyword.control.conditional.default.slang
 //             ^ punctuation.separator.colon.slang
+    }
+
+    __target_switch
+//  ^^^^^^^^^^^^^^^ meta.statement.conditional.switch.slang keyword.control.conditional.switch.slang
+    {
+//  ^^ meta.statement.conditional.switch.slang meta.block.slang
+//  ^ punctuation.section.block.begin.slang
+        case spirv:
+        case hlsl:
     }
 
     outer:
@@ -1198,6 +1423,21 @@
 //                 ^ punctuation.section.arguments.end.slang
 //                  ^^ punctuation.definition.annotation.end.slang
 
+    [mutating] void inc(float4 val) { x += val; }
+//  ^^^^^^^^^^ meta.annotation.slang
+//  ^ punctuation.definition.annotation.begin.slang
+//   ^^^^^^^^ variable.annotation.slang
+//           ^ punctuation.definition.annotation.end.slang
+//             ^^^^^^^^ meta.function.slang
+//             ^^^^ storage.type.slang
+//                  ^^^ entity.name.function.slang
+//                  @@@ definition
+//                     ^^^^^^^^^^^^ meta.function.parameters.slang
+//                     ^ punctuation.section.parameters.begin.slang
+//                      ^^^^^^ storage.type.slang
+//                             ^^^ variable.parameter.slang
+//                                ^ punctuation.section.parameters.end.slang
+
 // ===[ Variables ]=============================================================
 
     var a = 1;
@@ -1253,14 +1493,15 @@
 //                 ^ constant.numeric.value.slang
 //                  ^ punctuation.terminator.semicolon.slang
 
-    static const int d = 4;
+    public static const int d = 4;
 //  ^^^^^^ storage.modifier.slang
-//         ^^^^^ storage.modifier.slang
-//               ^^^ storage.type.slang
-//                   ^ variable.other.slang
-//                     ^ keyword.operator.assignment.slang
-//                       ^ constant.numeric.value.slang
-//                        ^ punctuation.terminator.semicolon.slang
+//         ^^^^^^ storage.modifier.slang
+//                ^^^^^ storage.modifier.slang
+//                      ^^^ storage.type.slang
+//                          ^ variable.other.slang
+//                            ^ keyword.operator.assignment.slang
+//                              ^ constant.numeric.value.slang
+//                               ^ punctuation.terminator.semicolon.slang
 
     uniform float scaleFactor;
 //  ^^^^^^^ storage.modifier.slang
@@ -1328,6 +1569,9 @@
 //                                                 ^^^^ storage.type.slang
 //                                                     ^ punctuation.definition.generic.end.slang
 
+// FIXME: use function call or storage.type in a consistent way
+    float3 up = abs(shading.normal.y) < 0.999f ? float3(0.0f, 1.0f, 0.0f) : float3(1.0f, 0.0f, 0.0f);
+
     structValue.someField
 //  ^^^^^^^^^^^ variable.other.slang
 //             ^ punctuation.accessor.dot.slang
@@ -1341,6 +1585,9 @@
 //  ^^^^^^^^^^ variable.other.slang
 //            ^ punctuation.accessor.dot.slang
 //             ^^^^^^^^^ variable.other.member.slang
+
+    uint rayFlags = RAY_FLAG_FORCE_OPAQUE;
+//                  ^^^^^^^^^^^^^^^^^^^^^ support.constant.slang
 
 // ===[ Lambda Expressions ]====================================================
 
@@ -1416,13 +1663,17 @@
 //      ^ variable.other.slang
 //       ^ punctuation.section.arguments.end.slang
 
-    cast<float4x3>(a)
-//  ^^^^ meta.function-call.identifier.slang variable.function.slang
-//      ^^^^^^^^^^ meta.function-call.slang meta.generic.slang
-//      ^ punctuation.definition.generic.begin.slang
-//       ^^^^^^^^ storage.type.slang
-//               ^ punctuation.definition.generic.end.slang
-//                ^^^ meta.function-call.arguments.slang
-//                ^ punctuation.section.arguments.begin.slang
-//                 ^ variable.other.slang
-//                  ^ punctuation.section.arguments.end.slang
+    float4 myPackedVector = reinterpret<float4>(myVal);
+//                          ^^^^^^^^^^^ meta.function-call.identifier.slang support.function.slang
+//                                     ^^^^^^^^ meta.function-call.slang meta.generic.slang
+//                                     ^ punctuation.definition.generic.begin.slang
+//                                      ^^^^^^ storage.type.slang
+//                                            ^ punctuation.definition.generic.end.slang
+//                                             ^^^^^^^ meta.function-call.arguments.slang
+//                                             ^ punctuation.section.arguments.begin.slang
+//                                              ^^^^^ variable.other.slang
+//                                                   ^ punctuation.section.arguments.end.slang
+//                                                    ^ punctuation.terminator.semicolon.slang
+
+// FIXME
+    bit_cast<half*>(addr.getBuffer())

@@ -9,7 +9,7 @@ file_extensions:
   - slang
 
 variables:
-  ReservedWord: '\b(?:is)\b'  # TODO: add all reserverd keywords
+  ReservedWord: '\b(?:class|is|where)\b'  # TODO: add all reserverd keywords
   Identifier: '\b[A-Za-z_]\w*\b'
   IntegerSuffixUnsigned: '[uU]'
   IntegerSuffixWidth: '(?:ll|LL|l|L|z|Z)'
@@ -57,6 +57,10 @@ contexts:
       pop: 1
 
 # ===[ Meta Scopes ]============================================================
+
+  namespace-declaration-meta:
+    - meta_scope: meta.namespace.slang
+    - include: immediately-pop
 
   struct-declaration-meta:
     - meta_scope: meta.struct.slang
@@ -142,17 +146,18 @@ contexts:
 # ===[ Comments ]===============================================================
 
   comments:
+    - include: line-comments
+    - include: block-comments
+    - match: \b__ignored_block\b
+      scope: keyword.other.slang
+      push: ignored-block
+
+  line-comments:
     - match: //
       scope: punctuation.definition.comment.slang
       push:
         - line-comment
         - todo-comment
-    - match: /\*
-      scope: punctuation.definition.comment.begin.slang
-      push: block-comment
-    - match: \b__ignored_block\b
-      scope: keyword.other.slang
-      push: ignored-block
 
   line-comment:
     - meta_scope: comment.line.double-slash.slang
@@ -172,6 +177,11 @@ contexts:
     - include: else-pop
     - match: $
       pop: 1
+
+  block-comments:
+    - match: /\*
+      scope: punctuation.definition.comment.begin.slang
+      push: block-comment
 
   block-comment:
     - meta_include_prototype: false
@@ -231,6 +241,7 @@ contexts:
 
   preprocessor-directive:
     - meta_scope: meta.preprocessor.slang
+    - include: line-comments
     - include: expressions
     - include: eol-pop
 
@@ -423,7 +434,7 @@ contexts:
     - meta_scope: meta.parens.slang
     - match: \)
       scope: punctuation.section.parens.end.slang
-      pop: 1
+      set: after-expression
     - include: punctuations
     - include: constant-declarations
     - include: type-annotations
@@ -620,6 +631,11 @@ contexts:
         - switch-statement-meta
         - expect-block
         - expect-parens-group
+    - match: \b__target_switch\b
+      scope: keyword.control.conditional.switch.slang
+      push:
+        - switch-statement-meta
+        - expect-block
     - match: \bcase\b
       scope: keyword.control.conditional.case.slang
       push: expect-case-expression
@@ -677,6 +693,14 @@ contexts:
     - match: \b__generic\b
       scope: keyword.other.slang
       push: generic-parameter-definition
+    - match: \b(?:__init|__subscript)\b
+      scope: keyword.other.slang
+      push:
+        - function-declaration-meta
+        - expect-block
+        - result-type-clause
+        - traditional-parameters-clause
+        - generic-parameters-clause
     - match: \b(?:get|set)\b
       scope: keyword.other.slang  # TODO
 
@@ -705,10 +729,13 @@ contexts:
       scope: storage.modifier.slang
     - match: \boverride\b
       scope: storage.modifier.slang
+    - match: \b(?:nointerpolation|no_diff)\b
+      scope: storage.modifier.slang
 
   declaration-keywords:
     - include: module-declarations
     - include: impl-declarations
+    - include: namespace-declarations
     - include: struct-declarations
     - include: enum-declarations
     - include: interface-declarations
@@ -750,9 +777,27 @@ contexts:
     - include: else-pop
     - include: eol-pop
 
+  namespace-declarations:
+    - match: \bnamespace\b
+      scope: keyword.declaration.namespace.slang
+      push:
+        - namespace-declaration-meta
+        - expect-block
+        - namespace-name
+
+  namespace-name:
+    - match: '{{Identifier}}'
+      scope: entity.name.namespace.slang
+    - match: \.
+      scope: punctuation.accessor.dot.slang
+    - match: '::'
+      scope: punctuation.accessor.double-colon.slang
+    - include: else-pop
+    - include: eol-pop
+
   struct-declarations:
     # TODO: handle access control modifier keywords in a better way
-    - match: \b(?:(public|internal|private)\s+)?(struct|class|cbuffer)\b
+    - match: \b(?:(public|internal|private)\s+)?(struct|cbuffer)\b
       captures:
         1: storage.modifier.slang
         2: keyword.declaration.struct.slang
@@ -807,13 +852,16 @@ contexts:
       push:
         - extension-declaration-meta
         - extension-name
+        - generic-parameters-clause
 
   extension-name:
     - match: '{{Identifier}}'
       scope: entity.name.trait.slang
       set:
         - expect-block
+        - generic-where-clause
         - type-annotation
+        - generic-parameters-clause
     - include: else-pop
     - include: eol-pop
 
@@ -927,6 +975,8 @@ contexts:
     - match: \(
       scope: punctuation.section.parameters.begin.slang
       set: traditional-parameters-body
+    - include: else-pop
+    - include: eol-pop
 
   traditional-parameters-body:
     - clear_scopes: 1
@@ -998,8 +1048,11 @@ contexts:
     - include: else-pop
 
   bases-clause-body:
+    - match: '(?={{ReservedWord}})'
+      pop: 1
     - match: '{{Identifier}}'
       scope: entity.other.inherited-class.slang
+      push: generic-parameters-clause
     - match: ','
       scope: punctuation.separator.comma.slang
     - include: else-pop
@@ -1027,7 +1080,7 @@ contexts:
     - match: \bvoid\b
       scope: storage.type.slang
       pop: 1
-    - match: \b(?:int8_t|int16_t|int|int64_t|uint8_t|uint16_t|uint|uint64_t|half|float|double|bool)(?:[234](?:x[234])?)?\b
+    - match: \b(?:int8_t|int16_t|int|int64_t|uint8_t|uint16_t|uint|uint64_t|half|float|double|bool)(?:[1-4](?:x[1-4])?)?\b
       scope: storage.type.slang
       pop: 1
     - match: \b(?:vector|matrix)\b
@@ -1113,7 +1166,7 @@ contexts:
     - include: else-pop
 
   generic-where-clause-body:
-    - match: (?=\bwhere\b)
+    - match: '(?={{ReservedWord}})'
       pop: 1
     - match: \boptional\b
       scope: storage.modifier.slang
@@ -1124,6 +1177,9 @@ contexts:
       scope: punctuation.separator.type.slang
     - match: ','
       scope: punctuation.separator.comma.slang
+    - match: \.
+      scope: punctuation.accessor.dot.slang
+    - include: operators
     - include: else-pop
     - include: eol-pop
 
