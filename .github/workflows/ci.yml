@@ -1,0 +1,32 @@
+name: syntax tests
+
+on:
+  push:
+    paths:
+      - '.github/workflows/ci.yml'
+      - '**.sublime-syntax'
+      - '**/syntax_test_*'
+      - '**.tmPreferences'
+  pull_request:
+    paths:
+      - '.github/workflows/ci.yml'
+      - '**.sublime-syntax'
+      - '**/syntax_test_*'
+      - '**.tmPreferences'
+
+jobs:
+  syntax_tests:
+    name: Syntax Tests (${{ matrix.build }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        include:
+          - build: latest
+          - build: stable
+    steps:
+      - uses: actions/checkout@v7
+      - uses: SublimeText/syntax-test-action@v2
+        with:
+          build: ${{ matrix.build }}
+          package_name: Slang
