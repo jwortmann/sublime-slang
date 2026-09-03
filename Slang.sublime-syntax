@@ -10,6 +10,7 @@ file_extensions:
 
 variables:
   ReservedWord: '\b(?:class|is|where)\b'  # TODO: add all reserverd keywords
+  AccessControlModifier: '\b(?:public|internal|private)\b'
   Identifier: '\b[A-Za-z_]\w*\b'
   IntegerSuffixUnsigned: '[uU]'
   IntegerSuffixWidth: '(?:ll|LL|l|L|z|Z)'
@@ -76,6 +77,10 @@ contexts:
 
   extension-declaration-meta:
     - meta_scope: meta.trait.slang
+    - include: immediately-pop
+
+  typealias-declaration-meta:
+    - meta_scope: meta.typealias.slang
     - include: immediately-pop
 
   function-declaration-meta:
@@ -275,18 +280,26 @@ contexts:
     - match: '->'
       scope: punctuation.accessor.arrow.slang
 
+# ===[ Labels ]=================================================================
+
+  labels:
+    - match: '({{Identifier}})(:)\s*$'
+      captures:
+        1: entity.name.label.slang
+        2: punctuation.separator.colon.slang
+
 # ===[ Expressions ]============================================================
 
   expressions:
     - include: literal-expressions
     - include: operators
     - include: parens
+    - include: blocks
     - include: builtin-variables
     - include: function-calls
     - include: stdlib-functions
     - include: stdlib-constants
     - include: variables
-    - include: blocks
 
   literal-expressions:
     - include: booleans
@@ -294,11 +307,36 @@ contexts:
     - include: integers
     - include: strings
 
+  after-expression:
+    - include: subscript-expressions
+    - include: member-expressions
+    - include: else-pop
+    - include: eol-pop
+
+  builtin-variables:
+    - match: \bthis\b
+      scope: variable.language.slang
+      push: after-expression
+
+  variables:
+    - match: '{{Identifier}}'
+      scope: variable.other.slang
+      push: after-expression
+
+  expect-variable:
+    - match: '{{Identifier}}'
+      scope: variable.other.slang
+      pop: 1
+
+# ===[ Builtin Constants ]======================================================
+
   booleans:
     - match: \btrue\b
       scope: constant.language.boolean.true.slang
     - match: \bfalse\b
       scope: constant.language.boolean.false.slang
+
+# ===[ Numbers ]================================================================
 
   integers:
     - match: \b(0[xX])([_\h]+)({{IntegerSuffix}})?
@@ -341,6 +379,8 @@ contexts:
         3: punctuation.separator.decimal.slang
         4: punctuation.separator.decimal.slang
         5: constant.numeric.suffix.slang
+
+# ===[ Strings ]================================================================
 
   strings:
     - match: \"
@@ -392,38 +432,14 @@ contexts:
     - match: \\u\h{4}|\\U\h{8}|\\u\{\h+\}
       scope: constant.character.escape.slang
 
+# ===[ Groups and Blocks ]======================================================
+
   parens:
     - match: (?=\()
       branch_point: lambda-expression
       branch:
         - lambda-expression
         - parens-group
-
-  lambda-expression:
-    - match: \(
-      scope: punctuation.section.parameters.begin.slang
-      set:
-        - lambda-expression-parameters
-        - expect-parameter-name
-        - expect-type
-
-  lambda-expression-parameters:
-    - meta_scope: meta.function.parameters.slang
-    - match: \)
-      scope: punctuation.section.parameters.end.slang
-      set: expect-lambda-arrow
-    - match: ','
-      scope: punctuation.separator.parameters.slang
-      push:
-        - expect-parameter-name
-        - expect-type
-
-  expect-lambda-arrow:
-    - match: '=>'
-      scope: keyword.operator.arrow.slang
-      pop: 1
-    - match: (?=\S)
-      fail: lambda-expression
 
   parens-group:
     - match: \(
@@ -464,26 +480,35 @@ contexts:
     - include: prototype
     - include: else-pop
 
-  builtin-variables:
-    - match: \bthis\b
-      scope: variable.language.slang
-      push: after-expression
+# ===[ Lambda Expressions ]=====================================================
 
-  variables:
-    - match: '{{Identifier}}'
-      scope: variable.other.slang
-      push: after-expression
+  lambda-expression:
+    - match: \(
+      scope: punctuation.section.parameters.begin.slang
+      set:
+        - lambda-expression-parameters
+        - expect-parameter-name
+        - expect-type-expression
 
-  expect-variable:
-    - match: '{{Identifier}}'
-      scope: variable.other.slang
+  lambda-expression-parameters:
+    - meta_scope: meta.function.parameters.slang
+    - match: \)
+      scope: punctuation.section.parameters.end.slang
+      set: expect-lambda-arrow
+    - match: ','
+      scope: punctuation.separator.parameters.slang
+      push:
+        - expect-parameter-name
+        - expect-type-expression
+
+  expect-lambda-arrow:
+    - match: '=>'
+      scope: keyword.operator.arrow.slang
       pop: 1
+    - match: (?=\S)
+      fail: lambda-expression
 
-  after-expression:
-    - include: subscript-expressions
-    - include: member-expressions
-    - include: else-pop
-    - include: eol-pop
+# ===[ Subscripts ]=============================================================
 
   subscript-expressions:
   # https://github.com/shader-slang/slang/blob/master/docs/language-reference/expressions-operators.md#subscript-expression
@@ -498,6 +523,8 @@ contexts:
       pop: 1
     - include: prototype
     - include: expressions
+
+# ===[ Accessors ]==============================================================
 
   member-expressions:
   # https://github.com/shader-slang/slang/blob/master/docs/language-reference/expressions-member-access.md
@@ -535,19 +562,19 @@ contexts:
       set:
         - expect-call-expression
         - function-call-meta
-        - type-parameter-clause
+        - type-parameters-clause
     - match: \b(?:AcceptHitAndEndSearch|AllMemoryBarrier|AllMemoryBarrierWithGroupSync|CallShader|CheckAccessFullyMapped|DeviceMemoryBarrier|DeviceMemoryBarrierWithGroupSync|DispatchMesh|DispatchRaysDimensions|DispatchRaysIndex|EvaluateAttributeAtCentroid|EvaluateAttributeAtSample|EvaluateAttributeSnapped|GeometryIndex|GetAttributeAtVertex|GetClusterID|GetInstanceTraversable|GetLssPositionsAndRadii|GetRenderTargetSampleCount|GetRenderTargetSamplePosition|GetSpherePositionAndRadius|GetTransformListHandle|GetTransformListSize|GetTraversableChild|GetTraversableInstanceId|GetTraversableObjectToWorld|GetTraversableTransformType|GetTraversableWorldToObject|GroupMemoryBarrier|GroupMemoryBarrierWithGroupSync|HitKind|HitTriangleVertexPosition|IgnoreHit|InstanceID|InstanceIndex|InterlockedAdd|InterlockedAddF16Emulated|InterlockedAddF16x2|InterlockedAnd|InterlockedCompareExchange|InterlockedCompareExchangeFloatBitwise|InterlockedCompareStore|InterlockedCompareStoreFloatBitwise|InterlockedExchange|InterlockedMax|InterlockedMin|InterlockedOr|InterlockedXor|IsHelperLane|IsLssHit|IsSphereHit|MaybeReorderThread|NonUniformResourceIndex|ObjectRayDirection|ObjectRayOrigin|ObjectToWorld|ObjectToWorld3x4|ObjectToWorld4x3|PrimitiveIndex|Process2DQuadTessFactorsAvg|Process2DQuadTessFactorsMax|Process2DQuadTessFactorsMin|ProcessIsolineTessFactors|ProcessQuadTessFactorsAvg|ProcessQuadTessFactorsMax|ProcessQuadTessFactorsMin|ProcessTriTessFactorsAvg|ProcessTriTessFactorsMax|ProcessTriTessFactorsMin|QuadAll|QuadAny|QuadReadAcrossDiagonal|QuadReadAcrossX|QuadReadAcrossY|QuadReadLaneAt|RayCurrentTime|RayFlags|RayTCurrent|RayTMin|ReorderThread|ReportHit|ReportHitOptix|SetMeshOutputCounts|TraceMotionRay|TraceRay|WaveActiveAllEqual|WaveActiveAllTrue|WaveActiveAnyTrue|WaveActiveBallot|WaveActiveBitAnd|WaveActiveBitOr|WaveActiveBitXor|WaveActiveCountBits|WaveActiveMax|WaveActiveMin|WaveActiveProduct|WaveActiveSum|WaveBroadcastLaneAt|WaveClusteredRotate|WaveGetActiveMulti|WaveGetConvergedMulti|WaveGetLaneCount|WaveGetLaneEqMask|WaveGetLaneGeMask|WaveGetLaneGtMask|WaveGetLaneIndex|WaveGetLaneLeMask|WaveGetLaneLtMask|WaveGetNumWaves|WaveGetWaveIndex|WaveIsFirstLane|WaveMatch|WaveMultiBitAnd|WaveMultiBitOr|WaveMultiBitXor|WaveMultiMax|WaveMultiMin|WaveMultiPrefixBitAnd|WaveMultiPrefixBitOr|WaveMultiPrefixBitXor|WaveMultiPrefixCountBits|WaveMultiPrefixExclusiveBitAnd|WaveMultiPrefixExclusiveBitOr|WaveMultiPrefixExclusiveBitXor|WaveMultiPrefixExclusiveMax|WaveMultiPrefixExclusiveMin|WaveMultiPrefixExclusiveProduct|WaveMultiPrefixExclusiveSum|WaveMultiPrefixInclusiveBitAnd|WaveMultiPrefixInclusiveBitOr|WaveMultiPrefixInclusiveBitXor|WaveMultiPrefixInclusiveMax|WaveMultiPrefixInclusiveMin|WaveMultiPrefixInclusiveProduct|WaveMultiPrefixInclusiveSum|WaveMultiPrefixProduct|WaveMultiPrefixSum|WaveMultiProduct|WaveMultiSum|WavePrefixBitAnd|WavePrefixBitOr|WavePrefixBitXor|WavePrefixCountBits|WavePrefixMax|WavePrefixMin|WavePrefixProduct|WavePrefixSum|WaveReadLaneAt|WaveReadLaneFirst|WaveRotate|WaveShuffle|WorkgroupCount|WorkgroupSize|WorldRayDirection|WorldRayOrigin|WorldToObject|WorldToObject3x4|WorldToObject4x3|_WaveCountBits)\b
       scope: meta.function-call.identifier.slang support.function.slang
       set:
         - expect-call-expression
         - function-call-meta
-        - type-parameter-clause
+        - type-parameters-clause
     - match: '{{Identifier}}'
       scope: meta.function-call.identifier.slang variable.function.slang
       set:
         - expect-call-expression
         - function-call-meta
-        - type-parameter-clause
+        - type-parameters-clause
 
   expect-call-expression:
     - match: \(
@@ -601,6 +628,12 @@ contexts:
     - include: expressions
     - include: eol-pop
 
+  expect-assignment-operator:
+    - match: '='
+      scope: keyword.operator.assignment.slang
+    - include: else-pop
+    - include: eol-pop
+
   punctuations:
     - match: ';'
       scope: punctuation.terminator.semicolon.slang
@@ -610,7 +643,7 @@ contexts:
 # ===[ Keywords ]===============================================================
 
   operator-keywords:
-    - match: \bis\b
+    - match: \b(?:as|is|sizeof)\b
       scope: keyword.operator.word.slang
 
   control-keywords:
@@ -631,7 +664,7 @@ contexts:
         - switch-statement-meta
         - expect-block
         - expect-parens-group
-    - match: \b__target_switch\b
+    - match: \b(?:__target_switch|__stage_switch)\b
       scope: keyword.control.conditional.switch.slang
       push:
         - switch-statement-meta
@@ -677,6 +710,8 @@ contexts:
       scope: keyword.control.flow.defer.slang
     - match: \bdiscard\b
       scope: keyword.control.flow.discard.slang
+    - match: \bthrow\b
+      scope: keyword.control.exception.throw.slang
     - match: \b(?:import|__include)\b
       scope: keyword.control.import.slang
 
@@ -700,36 +735,16 @@ contexts:
         - expect-block
         - result-type-clause
         - traditional-parameters-clause
-        - generic-parameters-clause
+        - type-parameters-clause
     - match: \b(?:get|set)\b
       scope: keyword.other.slang  # TODO
-
-  generic-parameter-definition:
-    - match: '<'
-      scope: punctuation.definition.generic.begin.slang
-      set: generic-parameter-definition-body
-    - include: else-pop
-    - include: eol-pop
-
-  generic-parameter-definition-body:
-    - meta_scope: meta.generic.slang
-    - match: '>'
-      scope: punctuation.definition.generic.end.slang
-      pop: 1
-    - match: \btypename\b
-      scope: keyword.declaration.generic.slang
-    - match: '{{Identifier}}'
-      scope: support.type.slang
-    - include: eol-pop
+    - match: \bspirv_asm\b
+      scope: keyword.other.slang
 
   modifier-keywords:
-    - match: \b(?:public|internal|private)\b
+    - match: '{{AccessControlModifier}}'
       scope: storage.modifier.slang
-    - match: \b(?:const|property|static|uniform)\b
-      scope: storage.modifier.slang
-    - match: \boverride\b
-      scope: storage.modifier.slang
-    - match: \b(?:nointerpolation|no_diff)\b
+    - match: \b(?:const|constexpr|export|extern|groupshared|inline|nointerpolation|override|param|property|protected|readonly|require|restrict|shared|static|uniform|volatile|writeonly)\b
       scope: storage.modifier.slang
 
   declaration-keywords:
@@ -744,6 +759,8 @@ contexts:
     - include: function-declarations
     - include: constant-declarations
     - include: variable-declarations
+
+# ===[ Misc Declarations ]======================================================
 
   constant-declarations:
     - match: \blet\b
@@ -796,8 +813,7 @@ contexts:
     - include: eol-pop
 
   struct-declarations:
-    # TODO: handle access control modifier keywords in a better way
-    - match: \b(?:(public|internal|private)\s+)?(struct|cbuffer)\b
+    - match: '(?:({{AccessControlModifier}})\s+)?\b(struct|cbuffer)\b'
       captures:
         1: storage.modifier.slang
         2: keyword.declaration.struct.slang
@@ -817,8 +833,10 @@ contexts:
     - include: eol-pop
 
   enum-declarations:
-    - match: \benum\b
-      scope: keyword.declaration.enum.slang
+    - match: '(?:({{AccessControlModifier}})\s+)?\b(enum)\b'
+      captures:
+        1: storage.modifier.slang
+        2: keyword.declaration.enum.slang
       push:
         - enum-declaration-meta
         - expect-block
@@ -833,8 +851,10 @@ contexts:
     - include: eol-pop
 
   interface-declarations:
-    - match: \binterface\b
-      scope: keyword.declaration.interface.slang
+    - match: '(?:({{AccessControlModifier}})\s+)?\b(interface)\b'
+      captures:
+        1: storage.modifier.slang
+        2: keyword.declaration.interface.slang
       push:
         - interface-declaration-meta
         - interface-name
@@ -842,7 +862,10 @@ contexts:
   interface-name:
     - match: '{{Identifier}}'
       scope: entity.name.interface.slang
-      set: expect-block
+      set:
+        - expect-block
+        - generic-where-clause
+        - generic-parameters-clause
     - include: else-pop
     - include: eol-pop
 
@@ -866,10 +889,19 @@ contexts:
     - include: eol-pop
 
   typealias-declarations:
-    - match: \btypealias\b
-      scope: keyword.declaration.type.slang
+    - match: '(?:({{AccessControlModifier}})\s+)?\b(typealias)\b'
+      captures:
+        1: storage.modifier.slang
+        2: keyword.declaration.type.slang
+      push:
+        - typealias-declaration-meta
+        - expect-type-expression
+        - expect-assignment-operator
+        - expect-type-expression
     - match: \btypedef\b
       scope: keyword.declaration.type.slang
+
+# ===[ Function Declarations ]==================================================
 
   function-declarations:
     - match: \bfunc\b
@@ -939,7 +971,7 @@ contexts:
   result-type-clause:
     - match: '->'
       scope: punctuation.separator.return-type.slang
-      set: expect-type
+      set: expect-type-expression
     - include: else-pop
 
   traditional-declarations:
@@ -954,13 +986,14 @@ contexts:
       set:
         - function-declaration-meta
         - expect-function-name
-        - expect-type
+        - expect-type-expression
 
   expect-function-name:
     - match: '{{Identifier}}'
       scope: entity.name.function.slang
       set:
         - expect-block
+        - throws-clause
         - generic-where-clause
         - expect-traditional-parameters-clause
         - generic-parameters-clause
@@ -995,13 +1028,19 @@ contexts:
       push:
         - parameter-default-value
         - expect-parameter-name
-        - expect-type
+        - expect-type-expression
+
+  throws-clause:
+    - match: \bthrows\b
+      scope: keyword.other.slang
+      set: expect-type-expression
+    - include: else-pop
 
   traditional-variable-declaration:
     - match: ''
       set:
         - expect-variable-name
-        - expect-type
+        - expect-type-expression
 
   expect-variable-name:
     - match: '(?={{ReservedWord}})'
@@ -1013,13 +1052,9 @@ contexts:
       set: after-expression
     - include: fail-traditional-declaration
 
-  labels:
-    - match: '({{Identifier}})(:)\s*$'
-      captures:
-        1: entity.name.label.slang
-        2: punctuation.separator.colon.slang
+# ===[ Binding Semantics / Type Annotations ]===================================
 
-# TODO: clean up unnecessary contexts
+# TODO: clean up or simplify contexts
   type-annotations:
     - match: ':'
       scope: punctuation.separator.type.slang
@@ -1062,33 +1097,35 @@ contexts:
   builtin-types:
     - match: \bvoid\b
       scope: storage.type.slang
-    - match: \b(?:int8_t|int16_t|int|int64_t|uint8_t|uint16_t|uint|uint64_t|half|float|double|bool)(?:[234](?:x[234])?)?\b
+    - match: \b(?:int|int8_t|int16_t|int32_t|int64_t|uint|uint8_t|uint16_t|uint32_t|uint64_t|half|float|double|bool)(?:[234](?:x[234])?)?\b
       scope: storage.type.slang
     - match: \b(?:vector|matrix)\b
       scope: storage.type.slang
-      push: generic-parameters-clause
+      push: type-parameters-clause
     - include: stdlib-types
     - include: stdlib-interfaces
 
-  # type-expressions:
-  #   - include: builtin-types
-  #   - match: '{{Identifier}}'
-  #     scope: support.type.slang
-  #     push: generic-parameters-clause
+  type-expressions:
+    - include: builtin-types
+    - match: '{{Identifier}}'
+      scope: support.type.slang
+      push: type-parameters-clause
 
-  expect-type:
+  expect-type-expression:
     - match: \bvoid\b
       scope: storage.type.slang
       pop: 1
-    - match: \b(?:int8_t|int16_t|int|int64_t|uint8_t|uint16_t|uint|uint64_t|half|float|double|bool)(?:[1-4](?:x[1-4])?)?\b
+    - match: \b(?:int|int8_t|int16_t|int32_t|int64_t|uint|uint8_t|uint16_t|uint32_t|uint64_t|half|float|double|bool)(?:[1-4](?:x[1-4])?)?\b
       scope: storage.type.slang
       pop: 1
     - match: \b(?:vector|matrix)\b
       scope: storage.type.slang
-      set: generic-parameters-clause
-    - match: '{{Identifier}}'
-      scope: support.type.slang
-      set: generic-parameters-clause
+      set: type-parameters-clause
+    - match: '({{Identifier}})(\*)?'
+      captures:
+        1: support.type.slang
+        2: keyword.operator.arithmetic.slang
+      set: type-parameters-clause
     - include: else-pop
     - include: eol-pop
 
@@ -1098,7 +1135,7 @@ contexts:
       set:
         - result-type-clause
         - functype-parameters
-    - include: expect-type
+    - include: expect-type-expression
 
   functype-parameters:
     - match: \(
@@ -1115,6 +1152,27 @@ contexts:
       scope: punctuation.separator.parameters.slang
     - include: builtin-types
 
+# ===[ Generic Parameters ]=====================================================
+
+# TODO: clean up or simplify contexts
+  generic-parameter-definition:
+    - match: '<'
+      scope: punctuation.definition.generic.begin.slang
+      set: generic-parameter-definition-body
+    - include: else-pop
+    - include: eol-pop
+
+  generic-parameter-definition-body:
+    - meta_scope: meta.generic.slang
+    - match: '>'
+      scope: punctuation.definition.generic.end.slang
+      pop: 1
+    - match: \btypename\b
+      scope: keyword.declaration.generic.slang
+    - match: '{{Identifier}}'
+      scope: support.type.slang
+    - include: eol-pop
+
   generic-parameters-clause:
     - match: '<'
       scope: punctuation.definition.generic.begin.slang
@@ -1127,35 +1185,39 @@ contexts:
     - match: '>'
       scope: punctuation.definition.generic.end.slang
       pop: 1
+    - include: prototype
     - match: ','
       scope: punctuation.separator.comma.slang
     - include: constant-declarations
-    - include: integers
     # - match: \b[A-Z]\b
     #   scope: variable.parameter.generic.slang
     - include: builtin-types
     - match: '{{Identifier}}'
       scope: support.type.slang
+      push: type-parameters-clause
     - include: type-annotations
-    - include: eol-pop
+    # - include: eol-pop
 
-  type-parameter-clause:
+  type-parameters-clause:
     - match: '<'
       scope: punctuation.definition.generic.begin.slang
-      set: type-parameter-body
+      set: type-parameters-body
     - include: else-pop
     - include: eol-pop
 
-  type-parameter-body:
+  type-parameters-body:
     - meta_scope: meta.generic.slang
     - match: '>'
       scope: punctuation.definition.generic.end.slang
       pop: 1
     - match: ','
       scope: punctuation.separator.comma.slang
+    - include: integers
     - include: builtin-types
     - match: '{{Identifier}}'
       scope: support.type.slang
+      push: type-parameters-clause
+    - include: operators
     - include: eol-pop
 
   generic-where-clause:
@@ -1172,7 +1234,7 @@ contexts:
       scope: storage.modifier.slang
     - match: '{{Identifier}}'
       scope: support.type.slang
-      push: generic-parameters-clause
+      push: type-parameters-clause
     - match: ':'
       scope: punctuation.separator.type.slang
     - match: ','
@@ -1190,7 +1252,7 @@ contexts:
     - match: \b(?:AppendStructuredBuffer|ApplyForBwdFuncType|Array|Atomic|AtomicAdd|BFloat16|BindlessDescriptorOptions|Buffer|BuiltInTriangleIntersectionAttributes|BwdCallableFuncType|BwdDiffFuncType|ByteAddressBuffer|CANDIDATE_TYPE|CDataLayout|COMMITTED_STATUS|ConstantBuffer|ConsumeStructuredBuffer|CoopMat|CoopMatClampMode|CoopMatMatrixLayout|CoopMatMatrixUse|CoopVec|CoopVecComponentType|CoopVecMatrixLayout|DefaultDataLayout|DefaultPushConstantDataLayout|DefaultVkBindlessBindings|DepthTexture1D|DepthTexture1DArray|DepthTexture2D|DepthTexture2DArray|DepthTexture2DMS|DepthTexture2DMSArray|DepthTexture3D|DepthTextureCube|DepthTextureCubeArray|DescriptorAccess|DescriptorHandle|DescriptorKind|DiffTensorView|DifferentialPair|DifferentialPtrPair|DispatchNodeInputRecord|FeedbackTexture2D|FeedbackTexture2DArray|FloatE4M3|FloatE5M2|FwdDiffFuncType|HitObject|ImmutablePtr|InputPatch|LayoutPtr|LineStream|MemoryOrder|NativeString|NodePayloadPtr|NullDifferential|Optional|OutputIndices|OutputPatch|OutputPrimitives|OutputVertices|ParameterBlock|PointStream|Ptr|RAYQUERY_FLAG|RAY_FLAG|RWBuffer|RWByteAddressBuffer|RWSampler1D|RWSampler1DArray|RWSampler2D|RWSampler2DArray|RWSampler2DMS|RWSampler2DMSArray|RWSampler3D|RWStructuredBuffer|RWTexture1D|RWTexture1DArray|RWTexture2D|RWTexture2DArray|RWTexture2DMS|RWTexture2DMSArray|RWTexture3D|RasterizerOrderedBuffer|RasterizerOrderedByteAddressBuffer|RasterizerOrderedSampler1D|RasterizerOrderedSampler1DArray|RasterizerOrderedSampler2D|RasterizerOrderedSampler2DArray|RasterizerOrderedSampler3D|RasterizerOrderedStructuredBuffer|RasterizerOrderedTexture1D|RasterizerOrderedTexture1DArray|RasterizerOrderedTexture2D|RasterizerOrderedTexture2DArray|RasterizerOrderedTexture3D|RayDesc|RayQuery|RaytracingAccelerationStructure|RematFuncType|SAMPLER_FEEDBACK_MIN_MIP|SAMPLER_FEEDBACK_MIP_REGION_USED|Sampler1D|Sampler1DArray|Sampler1DArrayShadow|Sampler1DShadow|Sampler2D|Sampler2DArray|Sampler2DArrayShadow|Sampler2DMS|Sampler2DMSArray|Sampler2DMSArrayShadow|Sampler2DMSShadow|Sampler2DShadow|Sampler3D|Sampler3DShadow|SamplerComparisonState|SamplerCube|SamplerCubeArray|SamplerCubeArrayShadow|SamplerCubeShadow|SamplerState|ScalarDataLayout|SideEffectBehavior|Std140DataLayout|Std430DataLayout|String|StructuredBuffer|SubpassInput|SubpassInputMS|TRAVERSABLE_TRANSFORM_TYPE|TensorLayout|TensorView|Texture1D|Texture1DArray|Texture2D|Texture2DArray|Texture2DMS|Texture2DMSArray|Texture3D|TextureBuffer|TextureCube|TextureCubeArray|TextureFootprint|TextureFootprint2D|TextureFootprint3D|TorchTensor|TriangleStream|Tuple|VkMutableBindlessBindings|WSampler1D|WSampler1DArray|WSampler2D|WSampler2DArray|WSampler3D|WTexture1D|WTexture1DArray|WTexture2D|WTexture2DArray|WTexture3D)\b
       scope: support.type.slang
       push:
-        - generic-parameters-clause
+        - type-parameters-clause
 
   stdlib-interfaces:
     # https://docs.shader-slang.org/en/latest/external/core-module-reference/interfaces/index.html

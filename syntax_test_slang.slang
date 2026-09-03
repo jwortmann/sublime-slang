@@ -547,16 +547,45 @@
 //                      ^ punctuation.terminator.semicolon.slang
 
     typealias vec3 = float3;
+//  ^^^^^^^^^^^^^^^^^^^^^^^ meta.typealias.slang
 //  ^^^^^^^^^ keyword.declaration.type.slang
-//            ^^^^ variable.other.slang
+//            ^^^^ support.type.slang
 //                 ^ keyword.operator.assignment.slang
 //                   ^^^^^^ storage.type.slang
 //                         ^ punctuation.terminator.semicolon.slang
 
-// FIXME
-    public typealias Differential = WaveTangledVector<T, ShMemSize, N, SubgroupSize, SubgroupCount>;
     public typealias ShMemPool = SharedMemoryPool<ShMemSize>;
+//  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ meta.typealias.slang
+//  ^^^^^^ storage.modifier.slang
+//         ^^^^^^^^^ keyword.declaration.type.slang
+//                   ^^^^^^^^^ support.type.slang
+//                             ^ keyword.operator.assignment.slang
+//                               ^^^^^^^^^^^^^^^^ support.type.slang
+//                                               ^^^^^^^^^^^ meta.generic.slang
+//                                               ^ punctuation.definition.generic.begin.slang
+//                                                ^^^^^^^^^ support.type.slang
+//                                                         ^ punctuation.definition.generic.end.slang
+//                                                          ^ punctuation.terminator.semicolon.slang - meta.typealias
+
     internal typealias uvec<int Dim> = Array<uint32_t, Dim>;
+//  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ meta.typealias.slang
+//  ^^^^^^^^ storage.modifier.slang
+//           ^^^^^^^^^ keyword.declaration.type.slang
+//                     ^^^^ support.type.slang
+//                         ^^^^^^^^^ meta.generic.slang
+//                         ^ punctuation.definition.generic.begin.slang
+//                          ^^^ storage.type.slang
+//                              ^^^ support.type.slang
+//                                 ^ punctuation.definition.generic.end.slang
+//                                   ^ keyword.operator.assignment.slang
+//                                     ^^^^^ support.type.slang
+//                                          ^^^^^^^^^^^^^^^ meta.generic.slang
+//                                          ^ punctuation.definition.generic.begin.slang
+//                                           ^^^^^^^^ storage.type.slang
+//                                                   ^ punctuation.separator.comma.slang
+//                                                     ^^^ support.type.slang
+//                                                        ^ punctuation.definition.generic.end.slang
+//                                                         ^ punctuation.terminator.semicolon.slang - meta.typealias
 
     typedef float3 vec3;
 //  ^^^^^^^ keyword.declaration.type.slang
@@ -863,19 +892,35 @@
         return x + y;
     }
 
-// FIXME
     int test(MyType* pObj)
+//  ^^^^^^^^ meta.function.slang
+//  ^^^ storage.type.slang
+//      ^^^^ entity.name.function.slang
+//      @@@@ definition
+//          ^^^^^^^^^^^^^^ meta.function.parameters.slang
+//          ^ punctuation.section.parameters.begin.slang
+//           ^^^^^^ support.type.slang
+//                 ^ keyword.operator.arithmetic.slang
+//                   ^^^^ variable.parameter.slang
+//                       ^ punctuation.section.parameters.end.slang
     {
+//  ^^ meta.function.slang meta.block.slang
+//  ^ punctuation.section.block.begin.slang
         MyType* pNext = pObj + 1;
+//      ^^^^^^ support.type.slang
+//            ^ keyword.operator.arithmetic.slang
+//              ^^^^^ variable.other.slang
         MyType* pNext2 = &pNext[1];
         return pNext.a + pNext->a + (*pNext2).a + pNext2[0].a;
     }
 
-// FIXME
     int f() throws MyError
+//          ^^^^^^ keyword.other.slang
+//                 ^^^^^^^ support.type.slang
     {
         if (computerIsBroken())
             throw MyError.CatastrophicFailure;
+//          ^^^^^ keyword.control.exception.throw.slang
         return 42;
     }
 
@@ -1223,24 +1268,47 @@
         }
     }
 
-// FIXME
     public interface IActivation<T>
+//  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ meta.interface.slang
+//  ^^^^^^ storage.modifier.slang
+//         ^^^^^^^^^ keyword.declaration.interface.slang
+//                   ^^^^^^^^^^^ entity.name.interface.slang
+//                              ^^^ meta.generic.slang
+//                              ^ punctuation.definition.generic.begin.slang
+//                               ^ support.type.slang
+//                                ^ punctuation.definition.generic.end.slang
         where T : __BuiltinFloatingPointType
+//      ^^^^^ keyword.other.slang
         where T.Differential == T
     {
-
+//  ^^ meta.interface.slang meta.block.slang
+//  ^ punctuation.section.block.begin.slang
     }
 
     public interface IStaticEncoder<T,
+//  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ meta.interface.slang
+//  ^^^^^^ storage.modifier.slang
+//         ^^^^^^^^^ keyword.declaration.interface.slang
+//                                 ^^^^ meta.generic.slang
+//                                 ^ punctuation.definition.generic.begin.slang
+//                                  ^ support.type.slang
+//                                   ^ punctuation.separator.comma.slang
         InArray,
+//      ^^^^^^^^^ meta.generic.slang
+//      ^^^^^^^ support.type.slang
+//             ^ punctuation.separator.comma.slang
         OutArray
         >
+//      ^ meta.generic.slang punctuation.definition.generic.end.slang
+//       ^ - meta.generic
         where T : __BuiltinFloatingPointType
+//      ^^^^^ keyword.other.slang
         where T.Differential == T
         where InArray : IArrayAccessor<T>
         where OutArray : IArrayAccessor<T>
     {
-
+//  ^^ meta.interface.slang meta.block.slang
+//  ^ punctuation.section.block.begin.slang
     }
 
 // ===[ Control Flow ]==========================================================
@@ -1675,5 +1743,18 @@
 //                                                   ^ punctuation.section.arguments.end.slang
 //                                                    ^ punctuation.terminator.semicolon.slang
 
-// FIXME
     bit_cast<half*>(addr.getBuffer())
+//  ^^^^^^^^ meta.function-call.identifier.slang support.function.slang
+//          ^^^^^^^ meta.function-call.slang meta.generic.slang
+//          ^ punctuation.definition.generic.begin.slang
+//           ^^^^ storage.type.slang
+//               ^ keyword.operator.arithmetic.slang
+//                ^ punctuation.definition.generic.end.slang
+//                 ^^^^^^^^^^^^^^^^^^ meta.function-call.arguments.slang
+//                 ^ punctuation.section.arguments.begin.slang
+//                  ^^^^ variable.other.slang
+//                      ^ punctuation.accessor.dot.slang
+//                       ^^^^^^^^^ meta.function-call.identifier.slang variable.function.slang
+//                                ^^ meta.function-call.arguments.slang meta.function-call.arguments.slang
+//                                ^ punctuation.section.arguments.begin.slang
+//                                 ^^ punctuation.section.arguments.end.slang
