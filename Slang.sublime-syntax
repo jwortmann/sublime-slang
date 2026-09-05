@@ -29,6 +29,7 @@ contexts:
     - include: comments
     - include: merge-conflict-markers
     - include: preprocessor-directives
+    # - include: line-continuations
 
   main:
     - include: prototype
@@ -56,6 +57,15 @@ contexts:
   immediately-pop:
     - match: ''
       pop: 1
+
+  reserved-word-pop:
+    - match: '(?={{ReservedWord}})'
+      pop: 1
+
+  line-continuations:
+    - match: (\\)\n
+      captures:
+        1: punctuation.separator.continuation.line.slang
 
 # ===[ Meta Scopes ]============================================================
 
@@ -166,7 +176,9 @@ contexts:
 
   line-comment:
     - meta_scope: comment.line.double-slash.slang
-    - include: eol-pop
+    - include: line-continuations
+    - match: \n
+      pop: 1
 
   todo-comment:
     - match: (?i:(TODO))\b[^\n]*
@@ -254,12 +266,13 @@ contexts:
 
   attributes:
     - match: '^\s*(?=\[)'
-      push: attribute-bracket
+      push: attribute
 
-  attribute-bracket:
+  attribute:
     - match: \[\[?
       scope: punctuation.definition.annotation.begin.slang
       set: attribute-body
+    - include: else-pop
 
   attribute-body:
     - meta_scope: meta.annotation.slang
@@ -820,6 +833,7 @@ contexts:
       push:
         - struct-declaration-meta
         - struct-name
+        - attribute
 
   struct-name:
     - match: '{{Identifier}}'
@@ -1083,8 +1097,7 @@ contexts:
     - include: else-pop
 
   bases-clause-body:
-    - match: '(?={{ReservedWord}})'
-      pop: 1
+    - include: reserved-word-pop
     - match: '{{Identifier}}'
       scope: entity.other.inherited-class.slang
       push: generic-parameters-clause
@@ -1228,8 +1241,7 @@ contexts:
     - include: else-pop
 
   generic-where-clause-body:
-    - match: '(?={{ReservedWord}})'
-      pop: 1
+    - include: reserved-word-pop
     - match: \boptional\b
       scope: storage.modifier.slang
     - match: '{{Identifier}}'

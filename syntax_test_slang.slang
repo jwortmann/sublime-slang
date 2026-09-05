@@ -38,6 +38,13 @@
 //  ^^^^^^^^^^^ comment.line.double-slash.slang
 //  ^^ punctuation.definition.comment.slang
 
+    // comment \
+    still a comment
+//  ^^^^^^^^^^^^^^^^ comment.line.double-slash.slang
+
+    // comment \
+//             ^ punctuation.separator.continuation.line.slang
+
     // TODO: lorem ipsum
 //  ^^^^^^^^^^^^^^^^^^^^^ comment.line.double-slash.slang
 //  ^^ punctuation.definition.comment.slang
@@ -731,6 +738,21 @@
         void f1()
         {
         }
+    }
+
+    struct [raypayload] ValidRayPayload
+//  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ meta.struct.slang
+//  ^^^^^^ keyword.declaration.struct.slang
+//         ^^^^^^^^^^^^ meta.annotation.slang
+//         ^ punctuation.definition.annotation.begin.slang
+//          ^^^^^^^^^^ variable.annotation.slang
+//                    ^ punctuation.definition.annotation.end.slang
+//                      ^^^^^^^^^^^^^^^ entity.name.struct.slang
+//                      @@@@@@@@@@@@@@@ definition
+    {
+//  ^^ meta.struct.slang meta.block.slang
+//  ^ punctuation.section.block.begin.slang
+        float4 color : read(anyhit, closesthit, miss) : write(caller);
     }
 
     cbuffer PerFrameCB
